@@ -25,6 +25,30 @@ DS_KEYS = [
 ]
 
 
+def _resolve_ds_keys(reader: LogReader) -> dict[str, str | None]:
+    """Resolve canonical DriverStation keys to available log key names."""
+    available_keys = reader.list_keys()
+    resolved: dict[str, str | None] = {}
+
+    for canonical in DS_KEYS:
+        selected: str | None = None
+        for candidate in (canonical, f"/{canonical}"):
+            if candidate in available_keys:
+                selected = candidate
+                break
+
+        if selected is None:
+            suffix = f"/{canonical}"
+            suffix_matches = [key for key in available_keys if key.endswith(suffix)]
+            if suffix_matches:
+                # Prefer shorter keys like '/DriverStation/Enabled' over deeply prefixed variants.
+                selected = min(suffix_matches, key=len)
+
+        resolved[canonical] = selected
+
+    return resolved
+
+
 def register_subparser(subparsers: argparse._SubParsersAction) -> None:
     parser = subparsers.add_parser("query", help="Analyze key data in logs.")
     parser.add_argument("--file", help="Path or glob to log file (defaults to latest).")
@@ -52,10 +76,19 @@ def _run_single_query(reader: LogReader, args: argparse.Namespace) -> dict[str, 
     payload: dict[str, Any] = {"file": str(reader.path), "mode": args.mode}
 
     if args.mode == "ds":
-        series = reader.read_multiple_keys(DS_KEYS, start=args.start, end=args.end)
+        key_mapping = _resolve_ds_keys(reader)
+        actual_keys = [key for key in key_mapping.values() if key]
+        # For DS reconstruction, we need the latest values up to target_time (start).
+        # Do not trim by start here or we'd lose prior state transitions.
+        raw_series = reader.read_multiple_keys(actual_keys, start=None, end=args.end)
+        series = {
+            canonical: raw_series.get(actual, []) if actual else []
+            for canonical, actual in key_mapping.items()
+        }
         state = reconstruct_driver_station_state(series, target_time=args.start)
         payload["state"] = state
         payload["series"] = series
+        payload["resolved_keys"] = key_mapping
         return payload
 
     if not args.key:
