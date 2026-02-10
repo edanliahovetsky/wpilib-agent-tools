@@ -1,0 +1,3 @@
+robotpy-wpiutil
+numpy
+matplotlib
