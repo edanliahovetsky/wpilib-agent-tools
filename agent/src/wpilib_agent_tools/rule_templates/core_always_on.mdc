@@ -1,0 +1,14 @@
+---
+description: WPILib Agent Tools core sandbox workflow
+alwaysApply: true
+---
+
+# WPILib Agent Tools Core Rule
+
+- Run code iteration in sandboxes, not directly in the workspace.
+- Use `wpilib-agent-tools sandbox create --name <id> --source workspace` first.
+- Execute iterative commands through `wpilib-agent-tools sandbox run --name <id> -- <command>`.
+- Prefer `--json` for machine-consumable command output.
+- Use `wpilib-agent-tools sandbox status` and `sandbox stop` to manage running jobs.
+- Generate final changes with `wpilib-agent-tools sandbox patch --name <id> --output <file>`.
+- Apply reviewed patch output to workspace only after explicit approval.

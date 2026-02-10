@@ -46,6 +46,12 @@ pip install wpilib-agent-tools
 - `wpilib-agent-tools sandbox clean --all --older-than 24`
 - `wpilib-agent-tools sandbox patch --name <id> --output patch.diff`
 
+### Cursor rules
+
+- `wpilib-agent-tools rules install`
+- `wpilib-agent-tools rules install --mode scoped|both`
+- `wpilib-agent-tools rules install --target custom --output-dir <path>`
+
 ### Sandbox automation script
 
 For non-interactive agent workflows:
@@ -57,6 +63,36 @@ agent/scripts/sandbox_lifecycle.sh delete --name expA
 ```
 
 The script wraps `wpilib-agent-tools sandbox ...` commands.
+
+### Cursor rule setup
+
+Install default always-on core rule (recommended):
+
+```bash
+wpilib-agent-tools rules install
+```
+
+Optional modes:
+
+```bash
+# Install only scoped optional rule
+wpilib-agent-tools rules install --mode scoped
+
+# Install both core and scoped rules
+wpilib-agent-tools rules install --mode both
+```
+
+Optional custom location:
+
+```bash
+wpilib-agent-tools rules install --target custom --output-dir /path/to/rules
+```
+
+Idempotent behavior:
+
+- Existing files are skipped by default.
+- Use `--force` to overwrite installed rule files.
+- Use `--json` for machine-readable install output.
 
 ## Typical Workflow
 

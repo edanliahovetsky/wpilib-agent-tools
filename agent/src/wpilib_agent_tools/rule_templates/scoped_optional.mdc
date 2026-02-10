@@ -1,0 +1,11 @@
+---
+description: WPILib Agent Tools optional robot-code reminders
+globs: **/*.java
+alwaysApply: false
+---
+
+# WPILib Agent Tools Scoped Rule
+
+- For robot code changes, prefer sandbox execution and verification before workspace updates.
+- Run simulation and analysis from a sandbox context whenever possible.
+- Keep direct workspace edits for final reviewed patches only.
