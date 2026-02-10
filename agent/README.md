@@ -34,6 +34,24 @@ pip install wpilib-agent-tools
 - `wpilib-agent-tools graph --key <key> [--key <key2>] [--mode values|deriv|integral] [--output graph.png]`
 - `wpilib-agent-tools record --address <host> --duration <seconds> [--keys prefix] [--json]`
 - `wpilib-agent-tools view [--file <log>]`
+- `wpilib-agent-tools math --mode deriv|integral|simplify|solve|eval ... [--json]`
+
+`query --mode` options:
+
+- `timestamps`, `values`, `avg`, `minmax`, `deriv`, `integral`, `ds`
+- `stats` (count, mean, stddev, percentiles)
+- `smooth` (moving average with `--window`)
+- `threshold` (event detection with `--above` or `--below`)
+- `rms`
+- `expr` (evaluate expressions using `{Log/Key}` placeholders)
+- `fft` (dominant frequency components with `--top`)
+- `settle` (rise/settle/overshoot metrics with `--setpoint` or `--setpoint-key`)
+
+WPILOG struct decoding behavior:
+
+- `query --mode values` decodes common WPILib `struct:*` payloads (for example `ChassisSpeeds`, `Pose2d`, `SwerveModuleState[]`) into human-readable objects.
+- Unknown struct types are emitted with metadata and raw hex fallback (`wpilog_type`, `raw_size_bytes`, `raw_hex`) instead of opaque bytes.
+- `graph` remains numeric-only; non-scalar/structured samples are skipped and reported in output (`skipped_non_numeric_by_key` in JSON mode).
 
 ### Sandbox lifecycle
 
@@ -51,6 +69,16 @@ pip install wpilib-agent-tools
 - `wpilib-agent-tools rules install`
 - `wpilib-agent-tools rules install --mode scoped|both`
 - `wpilib-agent-tools rules install --target custom --output-dir <path>`
+
+### Symbolic math examples
+
+```bash
+wpilib-agent-tools math --mode deriv --expr "x**3 + x" --var x
+wpilib-agent-tools math --mode integral --expr "sin(x)" --var x
+wpilib-agent-tools math --mode simplify --expr "sin(x)**2 + cos(x)**2"
+wpilib-agent-tools math --mode solve --equation "x**2 - 4 = 0" --var x
+wpilib-agent-tools math --mode eval --expr "x**2 + y" --value x=3 --value y=2
+```
 
 ### Sandbox automation script
 
@@ -116,12 +144,12 @@ Idempotent behavior:
    ```
 
 4. Apply reviewed patch to workspace manually.
+
 5. Clean sandbox when finished (unless you need to keep it for more iteration):
 
    ```bash
    wpilib-agent-tools sandbox clean --name tune_shooter
    ```
-
 
 ## Notes
 

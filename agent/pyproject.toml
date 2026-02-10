@@ -9,6 +9,7 @@ dependencies = [
     "pyntcore",
     "numpy",
     "matplotlib",
+    "sympy",
 ]
 
 [project.scripts]

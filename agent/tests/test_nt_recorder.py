@@ -11,9 +11,10 @@ from wpilib_agent_tools.lib.nt_recorder import NTRecorder
 ntcore = pytest.importorskip("ntcore")
 
 
-def _publish_loop(stop_event: threading.Event) -> None:
+def _publish_loop(stop_event: threading.Event, persist_file: Path) -> None:
     server = ntcore.NetworkTableInstance.create()
-    server.startServer()
+    # Avoid writing default networktables.json into the repo cwd.
+    server.startServer(str(persist_file))
     value_pub = server.getDoubleTopic("/RecorderTest/Value").publish()
     enabled_pub = server.getBooleanTopic("/RecorderTest/Enabled").publish()
 
@@ -30,7 +31,11 @@ def _publish_loop(stop_event: threading.Event) -> None:
 
 def test_record_collects_values_from_reachable_server(tmp_path: Path) -> None:
     stop_event = threading.Event()
-    publisher = threading.Thread(target=_publish_loop, args=(stop_event,), daemon=True)
+    publisher = threading.Thread(
+        target=_publish_loop,
+        args=(stop_event, tmp_path / "networktables_persist.json"),
+        daemon=True,
+    )
     publisher.start()
     time.sleep(0.3)
 

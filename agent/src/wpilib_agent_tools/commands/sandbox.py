@@ -10,7 +10,7 @@ from pathlib import Path
 from wpilib_agent_tools.lib.sandbox_manager import SandboxError, SandboxManager, format_sandbox_row
 
 
-INTERNAL_COMMANDS = {"sim", "logs", "keys", "query", "graph", "record", "view", "sandbox"}
+INTERNAL_COMMANDS = {"sim", "logs", "keys", "query", "math", "graph", "record", "view", "sandbox"}
 
 
 def register_subparser(subparsers: argparse._SubParsersAction) -> None:

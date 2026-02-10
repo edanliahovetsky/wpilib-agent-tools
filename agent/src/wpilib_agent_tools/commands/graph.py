@@ -41,8 +41,9 @@ def register_subparser(subparsers: argparse._SubParsersAction) -> None:
     parser.set_defaults(handler=handle_graph)
 
 
-def _numeric_points(points: list[tuple[float, Any]]) -> list[tuple[float, float]]:
+def _numeric_points(points: list[tuple[float, Any]]) -> tuple[list[tuple[float, float]], int]:
     output: list[tuple[float, float]] = []
+    skipped_non_numeric = 0
     for timestamp, value in points:
         if isinstance(value, bool):
             output.append((timestamp, 1.0 if value else 0.0))
@@ -50,7 +51,9 @@ def _numeric_points(points: list[tuple[float, Any]]) -> list[tuple[float, float]
             output.append((timestamp, float(value)))
         elif isinstance(value, list) and value and isinstance(value[0], (int, float)):
             output.append((timestamp, float(value[0])))
-    return output
+        else:
+            skipped_non_numeric += 1
+    return output, skipped_non_numeric
 
 
 def handle_graph(args: argparse.Namespace) -> int:
@@ -62,9 +65,14 @@ def handle_graph(args: argparse.Namespace) -> int:
 
     reader = LogReader(file_path)
     plot_rows: list[dict[str, Any]] = []
+    skipped_non_numeric_by_key: dict[str, int] = {}
 
     for key in args.key:
-        points = _numeric_points(reader.read_key_points(key, start=args.start, end=args.end))
+        points, skipped_non_numeric = _numeric_points(
+            reader.read_key_points(key, start=args.start, end=args.end)
+        )
+        if skipped_non_numeric > 0:
+            skipped_non_numeric_by_key[key] = skipped_non_numeric
         if args.mode == "deriv":
             points = calculate_derivative(points)
         elif args.mode == "integral":
@@ -74,7 +82,24 @@ def handle_graph(args: argparse.Namespace) -> int:
         plot_rows.append({"key": key, "points": points})
 
     if not plot_rows:
-        print("No graphable data found for requested keys.")
+        if args.json:
+            print(
+                json.dumps(
+                    {
+                        "file": file_path,
+                        "mode": args.mode,
+                        "series_count": 0,
+                        "skipped_non_numeric_by_key": skipped_non_numeric_by_key,
+                    },
+                    indent=2,
+                )
+            )
+        else:
+            print("No graphable data found for requested keys.")
+            if skipped_non_numeric_by_key:
+                print("Skipped non-numeric samples:")
+                for key, count in skipped_non_numeric_by_key.items():
+                    print(f"  {key}: {count}")
         return 1
 
     plt.figure(figsize=(12, 6))
@@ -106,9 +131,14 @@ def handle_graph(args: argparse.Namespace) -> int:
         "mode": args.mode,
         "output": str(output_path),
         "series_count": len(plot_rows),
+        "skipped_non_numeric_by_key": skipped_non_numeric_by_key,
     }
     if args.json:
         print(json.dumps(payload, indent=2))
     else:
         print(f"Graph saved to: {output_path}")
+        if skipped_non_numeric_by_key:
+            print("Skipped non-numeric samples:")
+            for key, count in skipped_non_numeric_by_key.items():
+                print(f"  {key}: {count}")
     return 0

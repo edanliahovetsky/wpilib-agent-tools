@@ -6,7 +6,7 @@ import argparse
 from typing import Any, Callable
 
 from wpilib_agent_tools import __version__
-from wpilib_agent_tools.commands import graph, keys, logs, query, record, rules, sandbox, sim, view
+from wpilib_agent_tools.commands import graph, keys, logs, math, query, record, rules, sandbox, sim, view
 
 
 CommandRegistrar = Callable[[Any], None]
@@ -26,6 +26,7 @@ def build_parser() -> argparse.ArgumentParser:
         logs.register_subparser,
         keys.register_subparser,
         query.register_subparser,
+        math.register_subparser,
         graph.register_subparser,
         record.register_subparser,
         view.register_subparser,

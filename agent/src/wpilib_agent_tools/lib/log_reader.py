@@ -10,6 +10,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable
 
+from wpilib_agent_tools.lib.wpilog_struct_decoder import decode_struct_value
+
 try:
     from wpiutil.log import DataLogReader
 except ImportError:  # pragma: no cover - depends on optional runtime dependency
@@ -37,6 +39,16 @@ class LogSummary:
 def decode_value(raw: bytes, type_str: str) -> Any:
     """Decode WPILOG raw bytes into Python values."""
     try:
+        if type_str.startswith("struct:"):
+            decoded_struct = decode_struct_value(raw, type_str)
+            if decoded_struct is not None:
+                return decoded_struct
+            return {
+                "type": "UnknownStruct",
+                "wpilog_type": type_str,
+                "raw_size_bytes": len(raw),
+                "raw_hex": f"0x{raw.hex()}",
+            }
         if type_str == "double":
             return struct.unpack("<d", raw)[0]
         if type_str == "float":
