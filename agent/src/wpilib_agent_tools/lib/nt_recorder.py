@@ -48,6 +48,33 @@ def _extract_entry_value(entry: Any) -> Any:
     return None
 
 
+def _extract_value_payload(value_obj: Any) -> Any:
+    """Convert an ntcore Value-like object into JSON-compatible data."""
+    if value_obj is None:
+        return None
+
+    # RobotPy ntcore Value objects expose isValid()/value().
+    valid = getattr(value_obj, "isValid", None)
+    if callable(valid):
+        try:
+            if not bool(valid()):
+                return None
+        except Exception:
+            return None
+
+    candidate = value_obj
+    for method_name in ("value", "getValue"):
+        method = getattr(candidate, method_name, None)
+        if callable(method):
+            try:
+                candidate = method()
+            except Exception:
+                continue
+            break
+
+    return _jsonable(candidate)
+
+
 @dataclass(frozen=True)
 class RecordingResult:
     """Return value from a completed recording."""
@@ -86,11 +113,124 @@ class NTRecorder:
                 return True
         return False
 
+    def _wait_for_connection(self, inst: Any) -> None:
+        # Give NT4 a short grace period to establish transport before sampling.
+        timeout = max(0.5, min(5.0, self.duration_sec * 0.5))
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            try:
+                if inst.isConnected():
+                    return
+            except Exception:
+                pass
+            time.sleep(0.05)
+        raise RuntimeError(
+            f"Unable to connect to NT4 server at '{self.address}' within {timeout:.1f}s."
+        )
+
+    def _record_with_listener(
+        self,
+        *,
+        inst: Any,
+        start_mono: float,
+        topic_types: dict[str, str],
+        topic_data: dict[str, list[list[Any]]],
+        last_values: dict[str, Any],
+    ) -> None:
+        prefixes = self.key_prefixes or [""]
+        subscriber = ntcore.MultiSubscriber(inst, prefixes)
+        poller = ntcore.NetworkTableListenerPoller(inst)
+        event_flags = ntcore.EventFlags.kPublish | ntcore.EventFlags.kValueAll
+        poller.addListener(subscriber, int(event_flags))
+        try:
+            while True:
+                elapsed = time.monotonic() - start_mono
+                if elapsed >= self.duration_sec:
+                    break
+
+                for event in poller.readQueue():
+                    data = getattr(event, "data", None)
+                    if data is None:
+                        continue
+
+                    if isinstance(data, ntcore.TopicInfo):
+                        name = str(data.name)
+                        if not self._match_key(name):
+                            continue
+                        type_str = str(getattr(data, "type_str", "unknown"))
+                        topic_types.setdefault(name, type_str)
+                        continue
+
+                    if isinstance(data, ntcore.ValueEventData):
+                        try:
+                            name = str(data.topic.getName())
+                        except Exception:
+                            continue
+                        if not self._match_key(name):
+                            continue
+
+                        value = _extract_value_payload(getattr(data, "value", None))
+                        if value is None:
+                            continue
+                        if name in last_values and last_values[name] == value:
+                            continue
+
+                        last_values[name] = value
+                        topic_data.setdefault(name, []).append([round(elapsed, 6), value])
+                        continue
+
+                time.sleep(self.poll_interval_sec)
+        finally:
+            try:
+                poller.close()
+            finally:
+                subscriber.close()
+
+    def _record_with_topic_scan(
+        self,
+        *,
+        inst: Any,
+        start_mono: float,
+        topic_types: dict[str, str],
+        topic_data: dict[str, list[list[Any]]],
+        last_values: dict[str, Any],
+    ) -> None:
+        # Fallback path for environments without listener APIs.
+        while True:
+            elapsed = time.monotonic() - start_mono
+            if elapsed >= self.duration_sec:
+                break
+
+            try:
+                topics = inst.getTopics()
+            except Exception:
+                topics = []
+
+            for topic in topics:
+                try:
+                    name = str(topic.getName())
+                except Exception:
+                    continue
+                if not self._match_key(name):
+                    continue
+
+                topic_types.setdefault(name, str(getattr(topic, "getTypeString", lambda: "unknown")()))
+                entry = inst.getEntry(name)
+                value = _extract_entry_value(entry)
+                if value is None:
+                    continue
+                if name in last_values and last_values[name] == value:
+                    continue
+                last_values[name] = value
+                topic_data.setdefault(name, []).append([round(elapsed, 6), value])
+
+            time.sleep(self.poll_interval_sec)
+
     def record(self, output_file: str | Path | None = None) -> RecordingResult:
         """Record values for the configured duration and write JSON output."""
         if ntcore is None:
             raise RuntimeError(
-                "robotpy-ntcore is required for `record`. Install dependencies first."
+                "pyntcore is required for `record`. Install dependencies first."
             )
 
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -107,6 +247,7 @@ class NTRecorder:
         inst.stopClient()
         inst.startClient4("wpilib-agent-tools-recorder")
         inst.setServer(self.address)
+        self._wait_for_connection(inst)
 
         start_wall = datetime.now(tz=timezone.utc).isoformat()
         start_mono = time.monotonic()
@@ -115,35 +256,22 @@ class NTRecorder:
         last_values: dict[str, Any] = {}
 
         try:
-            while True:
-                elapsed = time.monotonic() - start_mono
-                if elapsed >= self.duration_sec:
-                    break
-
-                try:
-                    topics = inst.getTopics()
-                except Exception:
-                    topics = []
-
-                for topic in topics:
-                    try:
-                        name = str(topic.getName())
-                    except Exception:
-                        continue
-                    if not self._match_key(name):
-                        continue
-
-                    topic_types.setdefault(name, str(getattr(topic, "getTypeString", lambda: "unknown")()))
-                    entry = inst.getEntry(name)
-                    value = _extract_entry_value(entry)
-                    if value is None:
-                        continue
-                    if name in last_values and last_values[name] == value:
-                        continue
-                    last_values[name] = value
-                    topic_data.setdefault(name, []).append([round(elapsed, 6), value])
-
-                time.sleep(self.poll_interval_sec)
+            if all(hasattr(ntcore, attr) for attr in ("MultiSubscriber", "NetworkTableListenerPoller", "TopicInfo", "ValueEventData")):
+                self._record_with_listener(
+                    inst=inst,
+                    start_mono=start_mono,
+                    topic_types=topic_types,
+                    topic_data=topic_data,
+                    last_values=last_values,
+                )
+            else:
+                self._record_with_topic_scan(
+                    inst=inst,
+                    start_mono=start_mono,
+                    topic_types=topic_types,
+                    topic_data=topic_data,
+                    last_values=last_values,
+                )
         finally:
             inst.stopClient()
 

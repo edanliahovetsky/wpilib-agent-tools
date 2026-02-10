@@ -121,4 +121,4 @@ Idempotent behavior:
 
 - `sim` refuses direct workspace execution by default. Use `sandbox run` for normal operation.
 - `sim --direct-workspace` is available for advanced/manual workflows.
-- `record` requires `robotpy-ntcore` and reachable NT4 server.
+- `record` requires `pyntcore` and a reachable NT4 server.
