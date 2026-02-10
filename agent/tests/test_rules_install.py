@@ -111,9 +111,9 @@ def test_rule_templates_keep_critical_safety_guidance() -> None:
     scoped_text = rules._read_template(rules.SCOPED_TEMPLATE_FILE)
 
     assert "sandbox create --name <id> --source workspace" in core_text
-    assert "only one instance is active" in core_text
-    assert "Apply reviewed patch output to workspace only after explicit approval." in core_text
+    assert "Apply reviewed patch to workspace only after explicit approval." in core_text
     assert "--json" in core_text
+    assert "wpilib-agent-tools --help" in core_text
 
-    assert "only one instance is active" in scoped_text
+    assert "confirm how the repo switches between simulation and IRL modes" in scoped_text
     assert "after explicit approval" in scoped_text
