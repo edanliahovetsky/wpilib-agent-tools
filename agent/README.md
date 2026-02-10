@@ -1,76 +1,230 @@
 # WPILib Agent Tools
 
-`wpilib-agent-tools` is a sandbox-first CLI for iterating on WPILib robot code and analyzing logs without mutating the user workspace during experimentation.
+`wpilib-agent-tools` is a sandbox-first CLI for WPILib robot iteration, simulation runs, NetworkTables recording, and post-run log analysis.
+
+The design goal is safe iteration:
+
+- do work in disposable sandboxes
+- keep the workspace clean until review
+- produce explicit patches before applying final changes
+
+## Table of Contents
+
+- [What This Tool Does](#what-this-tool-does)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Command Overview](#command-overview)
+- [Detailed Command Reference](#detailed-command-reference)
+  - [logs](#logs)
+  - [keys](#keys)
+  - [query](#query)
+  - [graph](#graph)
+  - [record](#record)
+  - [view](#view)
+  - [math](#math)
+  - [sim](#sim)
+  - [sandbox](#sandbox)
+  - [rules](#rules)
+- [Data Formats and Struct Decoding](#data-formats-and-struct-decoding)
+- [Filesystem Locations](#filesystem-locations)
+- [Automation Scripts](#automation-scripts)
+- [Typical End-to-End Workflow](#typical-end-to-end-workflow)
+- [Troubleshooting](#troubleshooting)
+- [Development](#development)
+
+## What This Tool Does
+
+`wpilib-agent-tools` provides:
+
+- **Sandbox lifecycle tooling**: create, run, inspect, stop, clean, and patch isolated work areas.
+- **Simulation orchestration**: run `./gradlew` tasks for fixed durations with single-instance enforcement.
+- **Log analysis**: inspect keys, compute metrics, derive series, reconstruct DriverStation state, and more.
+- **Graph generation**: output PNG plots for values, derivatives, and integrals.
+- **NetworkTables recording**: capture live NT4 streams into JSON logs.
+- **Cursor rule installation**: install packaged `.mdc` templates for sandbox workflow guidance.
 
 ## Installation
 
-From this repository:
+### Requirements
+
+- Python `>=3.10`
+- Recommended environment: virtualenv or similar
+- Optional runtime dependencies:
+  - `robotpy-wpiutil` for reading `.wpilog`
+  - `pyntcore` for `record`
+  - `matplotlib` for `graph`
+  - `sympy` for `math`
+
+These dependencies are included by default when you install the package.
+
+### Install from this repository
 
 ```bash
 cd agent
-pip install -e .
+python -m pip install -e .
 ```
 
-From PyPI (when published):
+### Install from PyPI (when published)
 
 ```bash
-pip install wpilib-agent-tools
+python -m pip install wpilib-agent-tools
 ```
 
-## Core Principles
+### Verify install
 
-- Iterative code changes happen inside sandboxes, not in the user workspace.
-- Source selection is explicit: `workspace`, `branch:<name>`, or `rev:<sha>`.
-- Multiple sandboxes can run concurrently.
-- Final workspace changes should come from an explicit patch/diff review step.
+```bash
+wpilib-agent-tools --version
+```
 
-## Command Reference
+You can also invoke via module:
 
-### Data and analysis
+```bash
+python -m wpilib_agent_tools --version
+```
 
-- `wpilib-agent-tools logs --dir agent/logs [--json]`
-- `wpilib-agent-tools keys --file <log> [--filter KEY] [--json]`
-- `wpilib-agent-tools query --mode <mode> [--file <log>] [--key <key>] [--json]`
-- `wpilib-agent-tools graph --key <key> [--key <key2>] [--mode values|deriv|integral] [--output graph.png]`
-- `wpilib-agent-tools record --address <host> --duration <seconds> [--keys prefix] [--json]`
-- `wpilib-agent-tools view [--file <log>]`
-- `wpilib-agent-tools math --mode deriv|integral|simplify|solve|eval ... [--json]`
+## Quick Start
 
-`query --mode` options:
+Create a sandbox from current workspace state, run simulation and analysis there, export a patch, then clean up:
 
-- `timestamps`, `values`, `avg`, `minmax`, `deriv`, `integral`, `ds`
-- `stats` (count, mean, stddev, percentiles)
-- `smooth` (moving average with `--window`)
-- `threshold` (event detection with `--above` or `--below`)
-- `rms`
-- `expr` (evaluate expressions using `{Log/Key}` placeholders)
-- `fft` (dominant frequency components with `--top`)
-- `settle` (rise/settle/overshoot metrics with `--setpoint` or `--setpoint-key`)
+```bash
+wpilib-agent-tools sandbox create --name tune_shooter --source workspace
+wpilib-agent-tools sandbox run --name tune_shooter -- sim --duration 15
+wpilib-agent-tools sandbox run --name tune_shooter -- query --mode avg --key "Shooter/Velocity"
+wpilib-agent-tools sandbox patch --name tune_shooter --output tune_shooter.diff
+wpilib-agent-tools sandbox clean --name tune_shooter
+```
 
-WPILOG struct decoding behavior:
+## Command Overview
 
-- `query --mode values` decodes common WPILib `struct:*` payloads (for example `ChassisSpeeds`, `Pose2d`, `SwerveModuleState[]`) into human-readable objects.
-- Unknown struct types are emitted with metadata and raw hex fallback (`wpilog_type`, `raw_size_bytes`, `raw_hex`) instead of opaque bytes.
-- `graph` remains numeric-only; non-scalar/structured samples are skipped and reported in output (`skipped_non_numeric_by_key` in JSON mode).
+| Command | Purpose |
+| --- | --- |
+| `logs` | List log files and metadata |
+| `keys` | List keys in a selected log |
+| `query` | Run point/metric analysis over log data |
+| `graph` | Generate PNG graphs from key series |
+| `record` | Record live NT4 data to JSON |
+| `view` | Open a log in AdvantageScope/system opener |
+| `math` | Symbolic/numeric math operations |
+| `sim` | Run a bounded simulation task |
+| `sandbox` | Full sandbox lifecycle management |
+| `rules` | Install Cursor rule templates |
 
-### Sandbox lifecycle
+Most commands support `--json` for machine-readable output. `view` is intentionally human-oriented and does not expose JSON mode.
 
-- `wpilib-agent-tools sandbox create --name <id> --source workspace`
-- `wpilib-agent-tools sandbox list`
-- `wpilib-agent-tools sandbox run --name <id> -- sim --duration 15`
-- `wpilib-agent-tools sandbox status [--name <id>]`
-- `wpilib-agent-tools sandbox stop --name <id>`
-- `wpilib-agent-tools sandbox clean --name <id>`
-- `wpilib-agent-tools sandbox clean --all --older-than 24`
-- `wpilib-agent-tools sandbox patch --name <id> --output patch.diff`
+## Detailed Command Reference
 
-### Cursor rules
+### logs
 
-- `wpilib-agent-tools rules install`
-- `wpilib-agent-tools rules install --mode scoped|both`
-- `wpilib-agent-tools rules install --target custom --output-dir <path>`
+List log files (newest-first) and metadata.
 
-### Symbolic math examples
+```bash
+wpilib-agent-tools logs --dir agent/logs
+wpilib-agent-tools logs --dir agent/logs --json
+```
+
+- Supports `.wpilog` and recorder `.json` files
+- Shows modified time, size, key count, and duration
+
+### keys
+
+List keys from a selected log.
+
+```bash
+wpilib-agent-tools keys --file agent/logs/run.wpilog
+wpilib-agent-tools keys --filter shooter
+wpilib-agent-tools keys --json
+```
+
+- If `--file` is omitted, uses the latest log in `agent/logs`
+- `--filter` is case-insensitive substring matching
+
+### query
+
+Query and analyze key data in logs.
+
+```bash
+wpilib-agent-tools query --mode values --key "Shooter/Velocity" --limit 20
+wpilib-agent-tools query --mode avg --key "Shooter/Velocity"
+wpilib-agent-tools query --mode stats --key "Shooter/Velocity" --json
+```
+
+Common options:
+
+- `--file`: path or glob (for example `agent/logs/*.wpilog`)
+- `--start`, `--end`: time bounds (seconds)
+- `--limit`: cap returned samples for series-returning modes
+- `--json`: structured results
+
+#### query modes
+
+| Mode | What it returns | Key options |
+| --- | --- | --- |
+| `timestamps` | start/end/count of selected key series | `--key` |
+| `values` | raw timestamp-value points | `--key`, `--limit` |
+| `avg` | scalar average | `--key` |
+| `minmax` | min/max values and timestamps | `--key` |
+| `deriv` | derivative time series | `--key`, `--limit` |
+| `integral` | integral time series | `--key`, `--limit` |
+| `stats` | count, mean, stddev, percentiles | `--key` |
+| `smooth` | moving-average series | `--key`, `--window`, `--limit` |
+| `threshold` | threshold events and durations | `--key`, `--above` and/or `--below`, `--min-duration` |
+| `rms` | RMS scalar | `--key` |
+| `expr` | expression-evaluated series | `--expr`, `--limit` |
+| `fft` | dominant frequency components | `--key`, `--top` |
+| `settle` | rise/settle/overshoot/steady-state metrics | `--key`, `--setpoint` or `--setpoint-key`, `--tolerance` |
+| `ds` | reconstructed DriverStation state | optional `--start`, `--end` |
+
+`expr` mode uses `{Key/Path}` placeholders:
+
+```bash
+wpilib-agent-tools query --mode expr \
+  --expr "{Shooter/Setpoint} - {Shooter/Velocity}" \
+  --json
+```
+
+`ds` mode resolves common key naming variants, including prefixed forms such as `/AdvantageKit/DriverStation/...`.
+
+### graph
+
+Create PNG plots from numeric series.
+
+```bash
+wpilib-agent-tools graph --key "Shooter/Velocity"
+wpilib-agent-tools graph --key "Drive/Vx" --key "Drive/Vy" --mode deriv --scatter
+wpilib-agent-tools graph --key "Arm/Position" --title "Arm Position" --output arm.png --json
+```
+
+- `--mode`: `values` (default), `deriv`, `integral`
+- Output is always written under `agent/visualizations/`
+- Non-numeric samples are skipped and reported (`skipped_non_numeric_by_key`)
+
+### record
+
+Record live NT4 topics into JSON.
+
+```bash
+wpilib-agent-tools record --address localhost --duration 10
+wpilib-agent-tools record --address 10.0.0.2 --duration 15 --keys /Shooter --keys /Drive --json
+```
+
+- `--keys` accepts repeatable key-prefix filters
+- If `--output` is relative, it is written under `agent/logs/`
+- Fails with a clear error if NT4 server is unreachable within a short timeout
+
+### view
+
+Open the selected log with platform opener behavior.
+
+```bash
+wpilib-agent-tools view --file agent/logs/latest.wpilog
+wpilib-agent-tools view
+```
+
+On macOS, it prefers `AdvantageScope.app` if available, then falls back to `open`.
+
+### math
+
+Symbolic and numeric math helper powered by SymPy.
 
 ```bash
 wpilib-agent-tools math --mode deriv --expr "x**3 + x" --var x
@@ -80,9 +234,146 @@ wpilib-agent-tools math --mode solve --equation "x**2 - 4 = 0" --var x
 wpilib-agent-tools math --mode eval --expr "x**2 + y" --value x=3 --value y=2
 ```
 
-### Sandbox automation script
+Modes:
 
-For non-interactive agent workflows:
+- `deriv`, `integral`, `simplify` require `--expr`
+- `solve` requires `--equation`
+- `eval` requires `--expr`, accepts repeatable `--value name=value`
+
+### sim
+
+Run a simulation Gradle task for a bounded duration.
+
+```bash
+wpilib-agent-tools sim --duration 15 --gradle-task simulateJava --direct-workspace
+wpilib-agent-tools sim --duration 20 --no-analyze --json --direct-workspace
+```
+
+Important behavior:
+
+- By default, direct workspace execution is blocked for safety.
+- Normal path is `sandbox run --name <id> -- sim ...`.
+- `sim` enforces one active instance by stopping prior tracked sim process before starting a new run.
+- Unless `--no-analyze` is used, it reports latest log summary after completion.
+
+### sandbox
+
+Manage isolated sandboxes under `~/.wpilib-agent-tools/sandboxes`.
+
+#### create
+
+```bash
+wpilib-agent-tools sandbox create --name expA --source workspace
+wpilib-agent-tools sandbox create --name expB --source branch:main
+wpilib-agent-tools sandbox create --name expC --source rev:abc1234
+```
+
+Source options:
+
+- `workspace`: snapshot current workspace state (including tracked diffs and untracked files)
+- `branch:<name>`: use branch commit
+- `rev:<sha>`: use explicit revision
+
+#### list and status
+
+```bash
+wpilib-agent-tools sandbox list
+wpilib-agent-tools sandbox status
+wpilib-agent-tools sandbox status --name expA --json
+```
+
+#### run
+
+```bash
+wpilib-agent-tools sandbox run --name expA -- sim --duration 15
+wpilib-agent-tools sandbox run --name expA -- query --mode avg --key "Shooter/Velocity"
+wpilib-agent-tools sandbox run --name expA --detach -- ./gradlew test
+```
+
+- Add `--detach` to return immediately and keep process running in sandbox
+- Internal CLI commands (`sim`, `query`, etc.) are mapped automatically
+
+#### stop, clean, patch
+
+```bash
+wpilib-agent-tools sandbox stop --name expA
+wpilib-agent-tools sandbox clean --name expA
+wpilib-agent-tools sandbox clean --all --older-than 24
+wpilib-agent-tools sandbox patch --name expA --output expA.diff
+```
+
+- `stop --force` escalates to SIGKILL if needed
+- `clean --force` can remove busy sandboxes
+- `patch` requires a git-backed sandbox
+
+### rules
+
+Install Cursor rule templates for sandbox-oriented workflows.
+
+```bash
+wpilib-agent-tools rules install
+wpilib-agent-tools rules install --mode scoped
+wpilib-agent-tools rules install --mode both --force
+wpilib-agent-tools rules install --target custom --output-dir /path/to/rules
+```
+
+Modes:
+
+- `core` (default): always-on rule
+- `scoped`: optional Java-scoped reminders
+- `both`: install both templates
+
+Behavior:
+
+- Idempotent by default (existing files are skipped)
+- `--force` overwrites existing installed files
+- `--json` returns machine-readable install results
+
+## Data Formats and Struct Decoding
+
+### Supported log inputs
+
+- `.wpilog` (WPILib DataLog format)
+- `.json` recorder outputs from `record`
+
+### Recorder JSON shape
+
+`record` writes payloads like:
+
+- `source`, `address`, `start_time`, `duration_sec`
+- `entries`: map of topic name to `{ type, data }`
+- each `data` item: `[timestamp_sec, value]`
+
+### Struct decoding in query
+
+When reading `.wpilog`, `query --mode values` decodes several `struct:*` payloads to human-readable dictionaries:
+
+- `Rotation2d`
+- `Translation2d`
+- `Pose2d`
+- `ChassisSpeeds`
+- `SwerveModuleState`
+- `SwerveModuleState[]`
+
+Unknown struct types are returned with fallback metadata (`wpilog_type`, `raw_size_bytes`, `raw_hex`) so samples remain inspectable.
+
+## Filesystem Locations
+
+Default paths used by the tool:
+
+- Logs: `agent/logs`
+- Graph output: `agent/visualizations`
+- Reports directory placeholder: `agent/reports`
+- Sandboxes root: `~/.wpilib-agent-tools/sandboxes`
+- Sandbox metadata: `~/.wpilib-agent-tools/metadata`
+- Sandbox locks: `~/.wpilib-agent-tools/locks`
+- Sim runtime pid file: `~/.wpilib-agent-tools/runtime/sim.pid`
+
+## Automation Scripts
+
+### `agent/scripts/sandbox_lifecycle.sh`
+
+Non-interactive wrapper around sandbox subcommands:
 
 ```bash
 agent/scripts/sandbox_lifecycle.sh create --name expA --source workspace --json
@@ -90,54 +381,27 @@ agent/scripts/sandbox_lifecycle.sh list --json
 agent/scripts/sandbox_lifecycle.sh delete --name expA
 ```
 
-The script wraps `wpilib-agent-tools sandbox ...` commands.
+### `agent/scripts/cleanup_instances.sh`
 
-### Cursor rule setup
+Best-effort cleanup utility that stops common lingering tool/sim processes before a fresh run.
 
-Install default always-on core rule (recommended):
+## Typical End-to-End Workflow
 
-```bash
-wpilib-agent-tools rules install
-```
-
-Optional modes:
-
-```bash
-# Install only scoped optional rule
-wpilib-agent-tools rules install --mode scoped
-
-# Install both core and scoped rules
-wpilib-agent-tools rules install --mode both
-```
-
-Optional custom location:
-
-```bash
-wpilib-agent-tools rules install --target custom --output-dir /path/to/rules
-```
-
-Idempotent behavior:
-
-- Existing files are skipped by default.
-- Use `--force` to overwrite installed rule files.
-- Use `--json` for machine-readable install output.
-
-## Typical Workflow
-
-1. Create sandbox from current workspace snapshot:
+1. Create sandbox from current working state:
 
    ```bash
    wpilib-agent-tools sandbox create --name tune_shooter --source workspace
    ```
 
-2. Run iteration commands in sandbox:
+2. Run simulation and analysis in sandbox:
 
    ```bash
    wpilib-agent-tools sandbox run --name tune_shooter -- sim --duration 15
-   wpilib-agent-tools sandbox run --name tune_shooter -- query --mode avg --key "Shooter/Velocity"
+   wpilib-agent-tools sandbox run --name tune_shooter -- query --mode stats --key "Shooter/Velocity" --json
+   wpilib-agent-tools sandbox run --name tune_shooter -- graph --key "Shooter/Velocity" --output shooter.png
    ```
 
-3. Generate and review patch:
+3. Produce patch for review:
 
    ```bash
    wpilib-agent-tools sandbox patch --name tune_shooter --output tune_shooter.diff
@@ -145,14 +409,33 @@ Idempotent behavior:
 
 4. Apply reviewed patch to workspace manually.
 
-5. Clean sandbox when finished (unless you need to keep it for more iteration):
+5. Clean sandbox unless you need to preserve it:
 
    ```bash
    wpilib-agent-tools sandbox clean --name tune_shooter
    ```
 
-## Notes
+## Troubleshooting
 
-- `sim` refuses direct workspace execution by default. Use `sandbox run` for normal operation.
-- `sim --direct-workspace` is available for advanced/manual workflows.
-- `record` requires `pyntcore` and a reachable NT4 server.
+- **No logs found**: ensure files exist under `agent/logs` or pass `--file`/`--dir` explicitly.
+- **Cannot read `.wpilog`**: verify `robotpy-wpiutil` is installed in current environment.
+- **`record` connection failure**: check robot/server address and NT4 availability; try longer `--duration`.
+- **`sim` refused in workspace**: run via `sandbox run ... -- sim ...` or add `--direct-workspace`.
+- **`graph` produced no output**: verify selected key contains numeric or bool data.
+- **`sandbox patch` failed**: patch generation requires a git-backed sandbox.
+
+## Development
+
+From `agent/`:
+
+```bash
+python -m pip install -e .
+pytest -q
+```
+
+Run specific tests:
+
+```bash
+pytest -q tests/test_query_math_modes.py
+pytest -q tests/test_nt_recorder.py
+```
