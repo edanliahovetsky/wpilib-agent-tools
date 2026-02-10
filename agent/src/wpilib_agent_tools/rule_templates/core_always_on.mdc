@@ -13,4 +13,5 @@ alwaysApply: true
 - Prefer `--json` for machine-consumable command output.
 - Use `wpilib-agent-tools sandbox status` and `sandbox stop` to manage running jobs.
 - Generate final changes with `wpilib-agent-tools sandbox patch --name <id> --output <file>`.
+- After patch generation, clean completed sandboxes with `wpilib-agent-tools sandbox clean --name <id>` unless the user asks to keep them.
 - Apply reviewed patch output to workspace only after explicit approval.

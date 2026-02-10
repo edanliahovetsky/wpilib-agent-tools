@@ -10,4 +10,5 @@ alwaysApply: false
 - Confirm how the repo switches between simulation and IRL modes before editing behavior.
 - Check `Constants.java` first, then other mode-routing code (mode enums, RobotContainer wiring, build flags) as needed.
 - Run simulation and analysis from a sandbox context whenever possible.
+- After patch generation, clean completed sandboxes with `wpilib-agent-tools sandbox clean --name <id>` unless the user asks to keep them.
 - Keep direct workspace edits for final reviewed patches only.

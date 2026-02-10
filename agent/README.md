@@ -116,6 +116,12 @@ Idempotent behavior:
    ```
 
 4. Apply reviewed patch to workspace manually.
+5. Clean sandbox when finished (unless you need to keep it for more iteration):
+
+   ```bash
+   wpilib-agent-tools sandbox clean --name tune_shooter
+   ```
+
 
 ## Notes
 
