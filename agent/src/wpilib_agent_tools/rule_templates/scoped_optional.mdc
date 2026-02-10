@@ -7,5 +7,7 @@ alwaysApply: false
 # WPILib Agent Tools Scoped Rule
 
 - For robot code changes, prefer sandbox execution and verification before workspace updates.
+- Confirm how the repo switches between simulation and IRL modes before editing behavior.
+- Check `Constants.java` first, then other mode-routing code (mode enums, RobotContainer wiring, build flags) as needed.
 - Run simulation and analysis from a sandbox context whenever possible.
 - Keep direct workspace edits for final reviewed patches only.
