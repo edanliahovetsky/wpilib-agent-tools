@@ -114,6 +114,12 @@ def test_rule_templates_keep_critical_safety_guidance() -> None:
     assert "Apply reviewed patch to workspace only after explicit approval." in core_text
     assert "--json" in core_text
     assert "wpilib-agent-tools --help" in core_text
+    assert "DriverStationSim.setAutonomous(true);" in core_text
+    assert "DriverStationSim.setEnabled(true);" in core_text
+    assert "DriverStationSim.notifyNewData();" in core_text
 
     assert "confirm how the repo switches between simulation and IRL modes" in scoped_text
+    assert "DriverStationSim.setAutonomous(true);" in scoped_text
+    assert "DriverStationSim.setEnabled(true);" in scoped_text
+    assert "DriverStationSim.notifyNewData();" in scoped_text
     assert "after explicit approval" in scoped_text
