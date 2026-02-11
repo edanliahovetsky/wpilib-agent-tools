@@ -117,11 +117,15 @@ def test_rule_template_keeps_critical_safety_guidance() -> None:
     assert "acceptance criteria" in core_text
     assert "minimum run set" in core_text
 
-    # Robot mode alignment
+    # Pre-sim gate (mode + DS state)
     assert "DriverStationSim.setAutonomous(true);" in core_text
+    assert "DriverStationSim.setTest(true);" in core_text
     assert "DriverStationSim.setEnabled(true);" in core_text
     assert "DriverStationSim.notifyNewData();" in core_text
     assert "Constants.java" in core_text
+    assert "MUST" in core_text
+    assert "blocker" in core_text
+    assert "do not proceed" in core_text
 
     # Self-discovery
     assert "wpilib-agent-tools --help" in core_text
