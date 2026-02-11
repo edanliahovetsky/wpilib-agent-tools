@@ -255,6 +255,8 @@ Run a simulation Gradle task for a bounded duration.
 ```bash
 wpilib-agent-tools sim --duration 15 --gradle-task simulateJava --direct-workspace
 wpilib-agent-tools sim --duration 20 --no-analyze --json --direct-workspace
+wpilib-agent-tools sim --duration 15 --record-address localhost --record-delay 2.0 --direct-workspace
+wpilib-agent-tools sim --duration 15 --no-record --direct-workspace
 wpilib-agent-tools sim --duration 12 --assert-key Shooter/turretUsedUnwindFallback --direct-workspace
 wpilib-agent-tools sim --duration 12 --assert-range Shooter/turretResolvedSetpointDeg -450 630 --direct-workspace
 wpilib-agent-tools sim --duration 12 --max-lines 80 --tail --include "WARN|ERROR|turret" --direct-workspace
@@ -266,9 +268,13 @@ Important behavior:
 - By default, direct workspace execution is blocked for safety.
 - Normal path is `sandbox run --name <id> -- sim ...`.
 - `sim` enforces one active instance by stopping prior tracked sim process before starting a new run.
+- By default, `sim` auto-records NT4 data to `agent/logs` (`--record` is on by default).
+- You can control auto-recording with `--record-address`, `--record-delay`, and `--record-output`, or disable with `--no-record`.
+- Recorder failure does not fail the run if a new analyzable `.wpilog` is still generated during the same sim run.
+- `sim` fails with `no_log_file_found` when no new analyzable log (`.json` or `.wpilog`) is produced.
 - By default, output is concise and bounded; use `--verbose` to stream full Gradle output.
 - `--assert-key` and `--assert-range` support pass/fail validation without manual log scanning.
-- Unless `--no-analyze` is used, it reports latest log summary after completion.
+- Unless `--no-analyze` is used, it reports the summary of the newly generated/updated log from that run.
 
 ### sandbox
 
@@ -440,7 +446,7 @@ Best-effort cleanup utility that stops common lingering tool/sim processes befor
 
 ## Troubleshooting
 
-- **No logs found**: ensure files exist under `agent/logs` or pass `--file`/`--dir` explicitly.
+- **No logs found / `no_log_file_found` after sim**: confirm NT4 is reachable at `--record-address`, increase `--record-delay` if NT4 starts late, or ensure your sim code emits `.wpilog` during the run.
 - **Cannot read `.wpilog`**: verify `robotpy-wpiutil` is installed in current environment.
 - **`record` connection failure**: check robot/server address and NT4 availability; try longer `--duration`.
 - **`sim` refused in workspace**: run via `sandbox run ... -- sim ...` or add `--direct-workspace`.

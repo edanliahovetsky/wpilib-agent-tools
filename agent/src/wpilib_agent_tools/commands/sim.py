@@ -7,6 +7,7 @@ import os
 import re
 import signal
 import subprocess
+import sys
 import time
 from collections import deque
 from io import TextIOWrapper
@@ -26,6 +27,45 @@ def _runtime_dir() -> Path:
 
 def _sim_pid_file() -> Path:
     return _runtime_dir() / "sim.pid"
+
+
+def _logs_dir() -> Path:
+    path = Path("agent/logs")
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def _snapshot_log_state(log_dir: Path) -> dict[str, int]:
+    state: dict[str, int] = {}
+    for path in LogReader.list_log_files(log_dir):
+        try:
+            state[str(path.resolve())] = path.stat().st_mtime_ns
+        except OSError:
+            continue
+    return state
+
+
+def _resolve_latest_generated_log(log_dir: Path, previous_state: dict[str, int]) -> Path | None:
+    for path in LogReader.list_log_files(log_dir):
+        try:
+            current_mtime = path.stat().st_mtime_ns
+        except OSError:
+            continue
+        key = str(path.resolve())
+        previous_mtime = previous_state.get(key)
+        if previous_mtime is None or current_mtime > previous_mtime:
+            return path
+    return None
+
+
+def _resolve_record_output_path(log_dir: Path, output_arg: str | None) -> Path:
+    if output_arg:
+        path = Path(output_arg)
+        if not path.is_absolute():
+            path = log_dir / path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        return path
+    return log_dir / f"sim-nt4-{int(time.time() * 1000)}.json"
 
 
 def _is_running(pid: int) -> bool:
@@ -102,6 +142,27 @@ def register_subparser(subparsers: argparse._SubParsersAction) -> None:
         action="store_true",
         help="Allow running outside sandbox (disabled by default).",
     )
+    parser.add_argument(
+        "--record",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Automatically record NT4 data during sim (default: true).",
+    )
+    parser.add_argument(
+        "--record-address",
+        default="localhost",
+        help="NT4 server address to use when auto-recording.",
+    )
+    parser.add_argument(
+        "--record-delay",
+        type=float,
+        default=2.0,
+        help="Delay before starting auto-recording (seconds).",
+    )
+    parser.add_argument(
+        "--record-output",
+        help="Output file path for auto-recorded NT4 JSON (default: agent/logs/sim-nt4-<timestamp>.json).",
+    )
     parser.add_argument("--json", action="store_true", help="Emit JSON output.")
     parser.add_argument("--json-compact", action="store_true", help="Emit compact JSON output.")
     parser.set_defaults(handler=handle_sim)
@@ -141,6 +202,20 @@ def _emit(payload: dict[str, Any], as_json: bool, *, compact_json: bool = False)
         print(
             "Latest log: "
             f"{summary['path']} (keys={summary['key_count']}, duration={summary['duration_sec']})"
+        )
+    log_generation = payload.get("log_generation")
+    if isinstance(log_generation, dict):
+        if log_generation.get("passed"):
+            print(f"Generated log: {log_generation.get('path')}")
+        else:
+            print(f"Generated log: none ({log_generation.get('reason')})")
+    recording = payload.get("recording")
+    if isinstance(recording, dict) and recording.get("enabled"):
+        print(
+            "Auto-record: "
+            f"started={recording.get('started')} "
+            f"exit_code={recording.get('exit_code')} "
+            f"output={recording.get('output_path')}"
         )
     assertions = payload.get("assertions")
     if isinstance(assertions, dict):
@@ -257,11 +332,22 @@ def handle_sim(args: argparse.Namespace) -> int:
         except re.error as exc:
             print(f"Invalid --include regex: {exc}")
             return 2
+    if args.record_delay < 0:
+        print("--record-delay must be >= 0")
+        return 2
 
+    logs_dir = _logs_dir()
+    pre_log_state = _snapshot_log_state(logs_dir)
     kill_result = _kill_prior_instance()
     command = ["./gradlew", args.gradle_task]
     output_artifact_path: Path | None = None
     output_file_handle: TextIOWrapper | None = None
+    record_process: subprocess.Popen[str] | None = None
+    record_output_path: Path | None = None
+    record_started = False
+    record_duration = 0.0
+    record_delay = 0.0
+    record_stderr = ""
     popen_kwargs: dict[str, Any] = {"preexec_fn": os.setsid}
     if not args.verbose:
         reports_dir = Path("agent/reports")
@@ -276,10 +362,37 @@ def handle_sim(args: argparse.Namespace) -> int:
     interrupted = False
     output_excerpt: list[str] = []
     output_summary: dict[str, Any] | None = None
+    if args.record:
+        record_delay = max(0.0, min(args.record_delay, max(0.0, args.duration - 0.5)))
+        record_duration = max(0.5, args.duration - record_delay)
+        record_output_path = _resolve_record_output_path(logs_dir, args.record_output)
     try:
         while True:
             elapsed = time.monotonic() - start
-            if process.poll() is not None:
+            process_status = process.poll()
+            if args.record and not record_started and process_status is None and elapsed >= record_delay:
+                record_command = [
+                    sys.executable,
+                    "-m",
+                    "wpilib_agent_tools",
+                    "record",
+                    "--address",
+                    args.record_address,
+                    "--duration",
+                    str(record_duration),
+                    "--output",
+                    str(record_output_path),
+                    "--json",
+                ]
+                record_process = subprocess.Popen(
+                    record_command,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    preexec_fn=os.setsid,
+                )
+                record_started = True
+            if process_status is not None:
                 break
             if elapsed >= args.duration:
                 break
@@ -300,6 +413,24 @@ def handle_sim(args: argparse.Namespace) -> int:
                 except ProcessLookupError:
                     pass
                 process.wait(timeout=5.0)
+        if record_process is not None:
+            if record_process.poll() is None:
+                try:
+                    os.killpg(os.getpgid(record_process.pid), signal.SIGTERM)
+                except ProcessLookupError:
+                    pass
+                try:
+                    record_process.wait(timeout=5.0)
+                except subprocess.TimeoutExpired:
+                    try:
+                        os.killpg(os.getpgid(record_process.pid), signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass
+                    record_process.wait(timeout=5.0)
+            try:
+                _, record_stderr = record_process.communicate(timeout=0.1)
+            except subprocess.TimeoutExpired:
+                record_stderr = ""
         _sim_pid_file().unlink(missing_ok=True)
         if output_file_handle is not None:
             output_file_handle.close()
@@ -331,9 +462,25 @@ def handle_sim(args: argparse.Namespace) -> int:
         "verbose": args.verbose,
         "output_excerpt": output_excerpt,
         "output_summary": output_summary,
+        "recording": {
+            "enabled": args.record,
+            "started": record_started,
+            "address": args.record_address if args.record else None,
+            "delay_sec": record_delay if args.record else None,
+            "duration_sec": record_duration if args.record else None,
+            "output_path": str(record_output_path) if record_output_path is not None else None,
+            "exit_code": record_process.returncode if record_process is not None else None,
+            "stderr": record_stderr.strip() if record_stderr else None,
+        },
     }
 
-    latest = LogReader.get_latest_log("agent/logs")
+    latest = _resolve_latest_generated_log(logs_dir, pre_log_state)
+    payload["log_generation"] = {
+        "passed": latest is not None,
+        "reason": None if latest is not None else "no_log_file_found",
+        "path": str(latest) if latest is not None else None,
+        "log_dir": str(logs_dir),
+    }
     if not args.no_analyze:
         if latest is not None:
             summary = LogReader(latest).get_summary()
@@ -369,6 +516,9 @@ def handle_sim(args: argparse.Namespace) -> int:
     _emit(payload, args.json, compact_json=args.json_compact)
     if exit_code != 0:
         return exit_code
+    log_generation = payload.get("log_generation")
+    if isinstance(log_generation, dict) and not log_generation.get("passed", True):
+        return 3
     assertions = payload.get("assertions")
     if isinstance(assertions, dict) and not assertions.get("passed", True):
         return 3
