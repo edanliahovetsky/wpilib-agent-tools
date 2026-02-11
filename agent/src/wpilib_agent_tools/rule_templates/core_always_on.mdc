@@ -84,7 +84,7 @@ Check `Constants.java` first, then mode-routing code (mode enums, `RobotContaine
 
 ### 2. DriverStation auto-enable
 
-You MUST ensure `robotInit()` (or equivalent startup path) forces the correct DS state before the sim loop begins. Choose the calls that match the target mode:
+You MUST ensure `robotInit()` (or equivalent startup path) forces the correct DS state before the sim loop begins. Make these changes only in a sandbox—they should not be committed to final code. Choose the calls that match the target mode:
 
 ```java
 // For autonomous:

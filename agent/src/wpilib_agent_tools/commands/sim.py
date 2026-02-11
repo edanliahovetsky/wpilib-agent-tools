@@ -64,8 +64,10 @@ def _resolve_record_output_path(log_dir: Path, output_arg: str | None) -> Path:
         if not path.is_absolute():
             path = log_dir / path
         path.parent.mkdir(parents=True, exist_ok=True)
-        return path
-    return log_dir / f"sim-nt4-{int(time.time() * 1000)}.wpilog"
+        return path.resolve()
+    path = log_dir / f"sim-nt4-{int(time.time() * 1000)}.wpilog"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    return path.resolve()
 
 
 def _record_grace_timeout(
@@ -76,13 +78,13 @@ def _record_grace_timeout(
 ) -> float:
     """How long to wait for recorder to flush before forcing termination."""
     if interrupted:
-        return 0.2
+        return 0.5
     if started_at is None:
-        return 1.0
+        return 2.0
     expected_end = started_at + max(0.0, duration_sec)
-    remaining = max(0.0, expected_end - time.monotonic())
-    # For normal sim completion this is usually ~1s; cap long waits if sim exits early.
-    return max(1.0, min(5.0, remaining + 1.0))
+    # Include connection setup overhead (up to 5s) plus buffer for final flush.
+    remaining = max(0.0, expected_end - time.monotonic()) + 6.0
+    return max(2.0, min(10.0, remaining))
 
 
 def _is_running(pid: int) -> bool:
@@ -502,6 +504,8 @@ def handle_sim(args: argparse.Namespace) -> int:
     }
 
     latest = _resolve_latest_generated_log(logs_dir, pre_log_state)
+    if latest is None and record_output_path is not None and record_output_path.exists():
+        latest = record_output_path
     payload["log_generation"] = {
         "passed": latest is not None,
         "reason": None if latest is not None else "no_log_file_found",
