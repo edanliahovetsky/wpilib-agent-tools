@@ -122,7 +122,7 @@ def _install_runtime_fakes(
 def test_sim_auto_record_enabled_by_default_and_invoked(
     monkeypatch: Any, tmp_path: Path, capsys: Any
 ) -> None:
-    generated_log = tmp_path / "agent" / "logs" / "generated.json"
+    generated_log = tmp_path / "agent" / "logs" / "generated.wpilog"
     commands, _kill_calls = _install_runtime_fakes(
         monkeypatch,
         tmp_path,
@@ -187,7 +187,7 @@ def test_sim_fails_when_no_generated_log(
 def test_sim_waits_for_recorder_flush_before_terminate(
     monkeypatch: Any, tmp_path: Path, capsys: Any
 ) -> None:
-    generated_log = tmp_path / "agent" / "logs" / "generated.json"
+    generated_log = tmp_path / "agent" / "logs" / "generated.wpilog"
     _commands, kill_calls = _install_runtime_fakes(
         monkeypatch,
         tmp_path,

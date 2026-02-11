@@ -65,7 +65,7 @@ def _resolve_record_output_path(log_dir: Path, output_arg: str | None) -> Path:
             path = log_dir / path
         path.parent.mkdir(parents=True, exist_ok=True)
         return path
-    return log_dir / f"sim-nt4-{int(time.time() * 1000)}.json"
+    return log_dir / f"sim-nt4-{int(time.time() * 1000)}.wpilog"
 
 
 def _record_grace_timeout(
@@ -178,7 +178,7 @@ def register_subparser(subparsers: argparse._SubParsersAction) -> None:
     )
     parser.add_argument(
         "--record-output",
-        help="Output file path for auto-recorded NT4 JSON (default: agent/logs/sim-nt4-<timestamp>.json).",
+        help="Output file path for auto-recorded NT4 WPILOG (default: agent/logs/sim-nt4-<timestamp>.wpilog).",
     )
     parser.add_argument("--json", action="store_true", help="Emit JSON output.")
     parser.add_argument("--json-compact", action="store_true", help="Emit compact JSON output.")

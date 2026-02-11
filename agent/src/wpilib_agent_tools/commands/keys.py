@@ -9,7 +9,7 @@ from wpilib_agent_tools.lib.output import bound_lines, emit
 
 
 def register_subparser(subparsers: argparse._SubParsersAction) -> None:
-    parser = subparsers.add_parser("keys", help="List keys in a WPILOG or recorder JSON file.")
+    parser = subparsers.add_parser("keys", help="List keys in a WPILOG file.")
     parser.add_argument("--file", help="Path to log file (defaults to latest).")
     parser.add_argument("--filter", help="Case-insensitive substring filter.")
     parser.add_argument("--summary", action="store_true", help="Emit only key count and source file.")

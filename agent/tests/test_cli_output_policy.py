@@ -46,13 +46,13 @@ def test_sim_parser_accepts_recording_flags() -> None:
             "--record-delay",
             "1.25",
             "--record-output",
-            "sim_capture.json",
+            "sim_capture.wpilog",
         ]
     )
     assert args.record is False
     assert args.record_address == "10.0.0.2"
     assert args.record_delay == 1.25
-    assert args.record_output == "sim_capture.json"
+    assert args.record_output == "sim_capture.wpilog"
 
 
 def test_sandbox_run_parser_accepts_output_controls() -> None:

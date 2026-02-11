@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -14,18 +13,31 @@ try:  # pragma: no cover - runtime dependency
 except ImportError:  # pragma: no cover - runtime dependency
     ntcore = None  # type: ignore[assignment]
 
+try:  # pragma: no cover - runtime dependency
+    from wpiutil import DataLogWriter
+except ImportError:  # pragma: no cover - runtime dependency
+    DataLogWriter = None  # type: ignore[assignment]
 
-def _jsonable(value: Any) -> Any:
+
+def _coerce_value(value: Any) -> Any:
     if value is None:
         return None
-    if isinstance(value, (bool, int, float, str)):
+    if isinstance(value, (bool, int, float, str, bytes)):
         return value
     if isinstance(value, (list, tuple)):
-        return [_jsonable(item) for item in value]
-    if isinstance(value, bytes):
-        return list(value)
+        return [_coerce_value(item) for item in value]
+    if isinstance(value, bytearray):
+        return bytes(value)
     if hasattr(value, "tolist"):
-        return value.tolist()
+        try:
+            return _coerce_value(value.tolist())
+        except Exception:
+            return str(value)
+    if hasattr(value, "item"):
+        try:
+            return _coerce_value(value.item())
+        except Exception:
+            return str(value)
     return str(value)
 
 
@@ -39,17 +51,17 @@ def _extract_entry_value(entry: Any) -> Any:
                 if hasattr(maybe, "isValid") and callable(maybe.isValid) and not maybe.isValid():
                     return None
                 if hasattr(maybe, "value") and callable(maybe.value):
-                    return _jsonable(maybe.value())
+                    return _coerce_value(maybe.value())
                 if hasattr(maybe, "getValue") and callable(maybe.getValue):
-                    return _jsonable(maybe.getValue())
-                return _jsonable(maybe)
+                    return _coerce_value(maybe.getValue())
+                return _coerce_value(maybe)
             except Exception:
                 continue
     return None
 
 
 def _extract_value_payload(value_obj: Any) -> Any:
-    """Convert an ntcore Value-like object into JSON-compatible data."""
+    """Convert an ntcore Value-like object into appendable data."""
     if value_obj is None:
         return None
 
@@ -72,7 +84,150 @@ def _extract_value_payload(value_obj: Any) -> Any:
                 continue
             break
 
-    return _jsonable(candidate)
+    return _coerce_value(candidate)
+
+
+def _normalize_type(type_str: str | None, value: Any | None = None) -> str:
+    normalized = (type_str or "").strip().lower()
+    aliases = {
+        "bool": "boolean",
+        "bool[]": "boolean[]",
+        "int": "int64",
+        "int[]": "int64[]",
+        "integer": "int64",
+        "integer[]": "int64[]",
+        "json": "string",
+    }
+    if normalized in aliases:
+        return aliases[normalized]
+    if normalized in {
+        "double",
+        "float",
+        "int64",
+        "boolean",
+        "string",
+        "double[]",
+        "float[]",
+        "int64[]",
+        "boolean[]",
+        "string[]",
+        "raw",
+    }:
+        return normalized
+
+    if isinstance(value, bytes):
+        return "raw"
+    if isinstance(value, bool):
+        return "boolean"
+    if isinstance(value, int):
+        return "int64"
+    if isinstance(value, float):
+        return "double"
+    if isinstance(value, str):
+        return "string"
+    if isinstance(value, (list, tuple)):
+        items = list(value)
+        if not items:
+            return "raw"
+        if all(isinstance(item, bool) for item in items):
+            return "boolean[]"
+        if all(isinstance(item, int) and not isinstance(item, bool) for item in items):
+            return "int64[]"
+        if all(isinstance(item, (int, float)) and not isinstance(item, bool) for item in items):
+            return "double[]"
+        if all(isinstance(item, str) for item in items):
+            return "string[]"
+    return "raw"
+
+
+def _ensure_entry_id(
+    *,
+    log: Any,
+    entry_ids: dict[str, int],
+    topic_types: dict[str, str],
+    name: str,
+    type_str: str | None,
+    value: Any | None = None,
+) -> tuple[int, str]:
+    normalized = _normalize_type(type_str, value)
+    existing_type = topic_types.get(name)
+    if existing_type is None:
+        topic_types[name] = normalized
+    normalized = topic_types.get(name, normalized)
+    if name not in entry_ids:
+        entry_ids[name] = int(log.start(name, normalized))
+    return entry_ids[name], normalized
+
+
+def _to_raw_bytes(value: Any) -> bytes:
+    if isinstance(value, bytes):
+        return value
+    if isinstance(value, bytearray):
+        return bytes(value)
+    if isinstance(value, str):
+        return value.encode("utf-8")
+    if isinstance(value, (list, tuple)):
+        try:
+            return bytes(value)
+        except Exception:
+            return str(value).encode("utf-8")
+    return str(value).encode("utf-8")
+
+
+def _append_to_log(
+    *,
+    log: Any,
+    entry_id: int,
+    value: Any,
+    type_str: str,
+    timestamp_us: int,
+) -> bool:
+    normalized = _normalize_type(type_str, value)
+    if value is None:
+        return False
+    try:
+        if normalized == "double":
+            log.appendDouble(entry_id, float(value), timestamp_us)
+            return True
+        if normalized == "float":
+            log.appendFloat(entry_id, float(value), timestamp_us)
+            return True
+        if normalized == "int64":
+            log.appendInteger(entry_id, int(value), timestamp_us)
+            return True
+        if normalized == "boolean":
+            log.appendBoolean(entry_id, bool(value), timestamp_us)
+            return True
+        if normalized == "string":
+            log.appendString(entry_id, str(value), timestamp_us)
+            return True
+        if normalized == "double[]":
+            values = [float(item) for item in list(value)]
+            log.appendDoubleArray(entry_id, values, timestamp_us)
+            return True
+        if normalized == "float[]":
+            values = [float(item) for item in list(value)]
+            log.appendFloatArray(entry_id, values, timestamp_us)
+            return True
+        if normalized == "int64[]":
+            values = [int(item) for item in list(value)]
+            log.appendIntegerArray(entry_id, values, timestamp_us)
+            return True
+        if normalized == "boolean[]":
+            values = [bool(item) for item in list(value)]
+            log.appendBooleanArray(entry_id, values, timestamp_us)
+            return True
+        if normalized == "string[]":
+            values = [str(item) for item in list(value)]
+            log.appendStringArray(entry_id, values, timestamp_us)
+            return True
+    except Exception:
+        # Preserve samples even if a type conversion unexpectedly fails.
+        log.appendRaw(entry_id, _to_raw_bytes(value), timestamp_us)
+        return True
+
+    log.appendRaw(entry_id, _to_raw_bytes(value), timestamp_us)
+    return True
 
 
 @dataclass(frozen=True)
@@ -132,16 +287,18 @@ class NTRecorder:
         self,
         *,
         inst: Any,
+        log: Any,
         start_mono: float,
         topic_types: dict[str, str],
-        topic_data: dict[str, list[list[Any]]],
+        entry_ids: dict[str, int],
         last_values: dict[str, Any],
-    ) -> None:
+    ) -> int:
         prefixes = self.key_prefixes or [""]
         subscriber = ntcore.MultiSubscriber(inst, prefixes)
         poller = ntcore.NetworkTableListenerPoller(inst)
         event_flags = ntcore.EventFlags.kPublish | ntcore.EventFlags.kValueAll
         poller.addListener(subscriber, int(event_flags))
+        sample_count = 0
         try:
             while True:
                 elapsed = time.monotonic() - start_mono
@@ -158,7 +315,7 @@ class NTRecorder:
                         if not self._match_key(name):
                             continue
                         type_str = str(getattr(data, "type_str", "unknown"))
-                        topic_types.setdefault(name, type_str)
+                        topic_types.setdefault(name, _normalize_type(type_str))
                         continue
 
                     if isinstance(data, ntcore.ValueEventData):
@@ -175,27 +332,56 @@ class NTRecorder:
                         if name in last_values and last_values[name] == value:
                             continue
 
+                        topic_type = topic_types.get(name)
+                        if topic_type is None:
+                            type_method = getattr(data.topic, "getTypeString", None)
+                            if callable(type_method):
+                                try:
+                                    topic_type = str(type_method())
+                                except Exception:
+                                    topic_type = None
+                        entry_id, normalized_type = _ensure_entry_id(
+                            log=log,
+                            entry_ids=entry_ids,
+                            topic_types=topic_types,
+                            name=name,
+                            type_str=topic_type,
+                            value=value,
+                        )
+                        timestamp_us = max(1, int(round((time.monotonic() - start_mono) * 1_000_000)))
+                        if not _append_to_log(
+                            log=log,
+                            entry_id=entry_id,
+                            value=value,
+                            type_str=normalized_type,
+                            timestamp_us=timestamp_us,
+                        ):
+                            continue
                         last_values[name] = value
-                        topic_data.setdefault(name, []).append([round(elapsed, 6), value])
+                        sample_count += 1
                         continue
 
+                log.flush()
                 time.sleep(self.poll_interval_sec)
         finally:
             try:
                 poller.close()
             finally:
                 subscriber.close()
+        return sample_count
 
     def _record_with_topic_scan(
         self,
         *,
         inst: Any,
+        log: Any,
         start_mono: float,
         topic_types: dict[str, str],
-        topic_data: dict[str, list[list[Any]]],
+        entry_ids: dict[str, int],
         last_values: dict[str, Any],
-    ) -> None:
+    ) -> int:
         # Fallback path for environments without listener APIs.
+        sample_count = 0
         while True:
             elapsed = time.monotonic() - start_mono
             if elapsed >= self.duration_sec:
@@ -214,33 +400,73 @@ class NTRecorder:
                 if not self._match_key(name):
                     continue
 
-                topic_types.setdefault(name, str(getattr(topic, "getTypeString", lambda: "unknown")()))
+                type_method = getattr(topic, "getTypeString", None)
+                if callable(type_method):
+                    try:
+                        topic_type_text = str(type_method())
+                    except Exception:
+                        topic_type_text = "unknown"
+                else:
+                    topic_type_text = str(type_method or "unknown")
+                topic_types.setdefault(name, _normalize_type(topic_type_text))
                 entry = inst.getEntry(name)
                 value = _extract_entry_value(entry)
                 if value is None:
                     continue
                 if name in last_values and last_values[name] == value:
                     continue
+                type_method = getattr(topic, "getTypeString", None)
+                if callable(type_method):
+                    try:
+                        topic_type = str(type_method())
+                    except Exception:
+                        topic_type = topic_types.get(name)
+                else:
+                    topic_type = topic_types.get(name)
+                entry_id, normalized_type = _ensure_entry_id(
+                    log=log,
+                    entry_ids=entry_ids,
+                    topic_types=topic_types,
+                    name=name,
+                    type_str=topic_type,
+                    value=value,
+                )
+                timestamp_us = max(1, int(round((time.monotonic() - start_mono) * 1_000_000)))
+                if not _append_to_log(
+                    log=log,
+                    entry_id=entry_id,
+                    value=value,
+                    type_str=normalized_type,
+                    timestamp_us=timestamp_us,
+                ):
+                    continue
                 last_values[name] = value
-                topic_data.setdefault(name, []).append([round(elapsed, 6), value])
+                sample_count += 1
 
+            log.flush()
             time.sleep(self.poll_interval_sec)
+        return sample_count
 
     def record(self, output_file: str | Path | None = None) -> RecordingResult:
-        """Record values for the configured duration and write JSON output."""
+        """Record values for the configured duration and write WPILOG output."""
         if ntcore is None:
             raise RuntimeError(
                 "pyntcore is required for `record`. Install dependencies first."
+            )
+        if DataLogWriter is None:
+            raise RuntimeError(
+                "robotpy-wpiutil is required for WPILOG recording. Install dependencies first."
             )
 
         self.output_dir.mkdir(parents=True, exist_ok=True)
         if output_file is None:
             stamp = datetime.now(tz=timezone.utc).strftime("%Y%m%d_%H%M%S")
-            output_path = self.output_dir / f"nt_record_{stamp}.json"
+            output_path = self.output_dir / f"nt_record_{stamp}.wpilog"
         else:
             output_path = Path(output_file)
             if not output_path.is_absolute():
                 output_path = self.output_dir / output_path
+        output_path.parent.mkdir(parents=True, exist_ok=True)
 
         inst = ntcore.NetworkTableInstance.getDefault()
         inst.stopServer()
@@ -249,55 +475,42 @@ class NTRecorder:
         inst.setServer(self.address)
         self._wait_for_connection(inst)
 
-        start_wall = datetime.now(tz=timezone.utc).isoformat()
         start_mono = time.monotonic()
         topic_types: dict[str, str] = {}
-        topic_data: dict[str, list[list[Any]]] = {}
+        entry_ids: dict[str, int] = {}
         last_values: dict[str, Any] = {}
-
+        sample_count = 0
+        log: Any | None = None
         try:
+            log = DataLogWriter(str(output_path))
             if all(hasattr(ntcore, attr) for attr in ("MultiSubscriber", "NetworkTableListenerPoller", "TopicInfo", "ValueEventData")):
-                self._record_with_listener(
+                sample_count = self._record_with_listener(
                     inst=inst,
+                    log=log,
                     start_mono=start_mono,
                     topic_types=topic_types,
-                    topic_data=topic_data,
+                    entry_ids=entry_ids,
                     last_values=last_values,
                 )
             else:
-                self._record_with_topic_scan(
+                sample_count = self._record_with_topic_scan(
                     inst=inst,
+                    log=log,
                     start_mono=start_mono,
                     topic_types=topic_types,
-                    topic_data=topic_data,
+                    entry_ids=entry_ids,
                     last_values=last_values,
                 )
         finally:
+            if log is not None:
+                log.flush()
+                log.stop()
             inst.stopClient()
-
-        entries: dict[str, Any] = {}
-        sample_count = 0
-        for key, series in topic_data.items():
-            sample_count += len(series)
-            entries[key] = {
-                "type": topic_types.get(key, "unknown"),
-                "data": series,
-            }
-
-        payload = {
-            "source": "NT4",
-            "address": self.address,
-            "start_time": start_wall,
-            "duration_sec": round(time.monotonic() - start_mono, 6),
-            "entries": entries,
-        }
-        with output_path.open("w", encoding="utf-8") as handle:
-            json.dump(payload, handle, indent=2)
 
         return RecordingResult(
             output_file=str(output_path),
             address=self.address,
-            duration_sec=float(payload["duration_sec"]),
-            topic_count=len(entries),
+            duration_sec=round(time.monotonic() - start_mono, 6),
+            topic_count=len(entry_ids),
             sample_count=sample_count,
         )

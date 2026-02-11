@@ -1,22 +1,61 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
+from typing import Any
+
+from wpiutil import DataLogWriter
 
 from wpilib_agent_tools.commands.sim import _parse_assert_ranges
 from wpilib_agent_tools.lib.assertions import evaluate_assertions
 
 
 def _write_log(path: Path, entries: dict[str, dict[str, object]]) -> Path:
-    payload = {
-        "source": "fixture",
-        "address": "localhost",
-        "start_time": "2026-02-10T00:00:00Z",
-        "duration_sec": 2.0,
-        "entries": entries,
-    }
-    path.write_text(json.dumps(payload), encoding="utf-8")
+    writer = DataLogWriter(str(path))
+    try:
+        for key, entry in entries.items():
+            if not isinstance(entry, dict):
+                continue
+            type_str = str(entry.get("type", "raw"))
+            data = entry.get("data", [])
+            if not isinstance(data, list):
+                continue
+            entry_id = int(writer.start(key, type_str))
+            for item in data:
+                if not isinstance(item, list) or len(item) != 2:
+                    continue
+                timestamp, value = item
+                if not isinstance(timestamp, (int, float)):
+                    continue
+                _append_value(
+                    writer=writer,
+                    entry_id=entry_id,
+                    type_str=type_str,
+                    value=value,
+                    timestamp_us=max(1, int(float(timestamp) * 1_000_000)),
+                )
+        writer.flush()
+    finally:
+        writer.stop()
     return path
+
+
+def _append_value(*, writer: Any, entry_id: int, type_str: str, value: object, timestamp_us: int) -> None:
+    if type_str == "double":
+        writer.appendDouble(entry_id, float(value), timestamp_us)
+        return
+    if type_str == "float":
+        writer.appendFloat(entry_id, float(value), timestamp_us)
+        return
+    if type_str in {"int64", "integer", "int"}:
+        writer.appendInteger(entry_id, int(value), timestamp_us)
+        return
+    if type_str == "boolean":
+        writer.appendBoolean(entry_id, bool(value), timestamp_us)
+        return
+    if type_str == "string":
+        writer.appendString(entry_id, str(value), timestamp_us)
+        return
+    writer.appendRaw(entry_id, str(value).encode("utf-8"), timestamp_us)
 
 
 def test_parse_assert_ranges_validates_input() -> None:
@@ -38,7 +77,7 @@ def test_parse_assert_ranges_validates_input() -> None:
 
 def test_evaluate_assertions_reports_pass_and_failure(tmp_path: Path) -> None:
     log_path = _write_log(
-        tmp_path / "assertions.json",
+        tmp_path / "assertions.wpilog",
         {
             "Shooter/turretResolvedSetpointDeg": {
                 "type": "double",
@@ -66,7 +105,7 @@ def test_evaluate_assertions_reports_pass_and_failure(tmp_path: Path) -> None:
 
 def test_evaluate_assertions_missing_key_fails(tmp_path: Path) -> None:
     log_path = _write_log(
-        tmp_path / "missing.json",
+        tmp_path / "missing.wpilog",
         {
             "Shooter/Velocity": {
                 "type": "double",

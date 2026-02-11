@@ -9,7 +9,7 @@ from wpilib_agent_tools.lib.nt_recorder import NTRecorder
 
 
 def register_subparser(subparsers: argparse._SubParsersAction) -> None:
-    parser = subparsers.add_parser("record", help="Record live NT4 data to JSON.")
+    parser = subparsers.add_parser("record", help="Record live NT4 data to WPILOG.")
     parser.add_argument("--address", default="localhost", help="NT4 server address.")
     parser.add_argument("--duration", type=float, required=True, help="Duration in seconds.")
     parser.add_argument(
@@ -17,7 +17,7 @@ def register_subparser(subparsers: argparse._SubParsersAction) -> None:
         action="append",
         help="Key prefix filter (repeatable). If omitted, records all keys.",
     )
-    parser.add_argument("--output", help="Output file path (default: agent/logs/nt_record_TIMESTAMP.json).")
+    parser.add_argument("--output", help="Output file path (default: agent/logs/nt_record_TIMESTAMP.wpilog).")
     parser.add_argument("--json", action="store_true", help="Emit JSON output.")
     parser.set_defaults(handler=handle_record)
 

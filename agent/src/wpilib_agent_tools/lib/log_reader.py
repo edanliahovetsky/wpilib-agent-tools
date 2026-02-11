@@ -1,9 +1,8 @@
-"""Unified log reading for WPILOG and recorder JSON outputs."""
+"""WPILOG log reading utilities."""
 
 from __future__ import annotations
 
 import glob
-import json
 import os
 import struct
 from dataclasses import dataclass
@@ -96,21 +95,18 @@ def _record_raw(record: Any) -> bytes:
 
 
 class LogReader:
-    """Read data from `.wpilog` or recorder `.json` files."""
+    """Read data from `.wpilog` files."""
 
     def __init__(self, file_path: str | Path):
         self.path = Path(file_path)
         if not self.path.exists():
             raise FileNotFoundError(f"Log file not found: {self.path}")
-        self._json_data: dict[str, Any] | None = None
 
     @property
     def format(self) -> str:
         suffix = self.path.suffix.lower()
         if suffix == ".wpilog":
             return "wpilog"
-        if suffix == ".json":
-            return "json"
         return "unknown"
 
     @staticmethod
@@ -119,7 +115,7 @@ class LogReader:
         directory = Path(log_dir)
         if not directory.exists():
             return []
-        patterns = ["*.wpilog", "*.json"]
+        patterns = ["*.wpilog"]
         files: list[Path] = []
         for pattern in patterns:
             files.extend(directory.glob(pattern))
@@ -130,12 +126,6 @@ class LogReader:
         files = LogReader.list_log_files(log_dir)
         return files[0] if files else None
 
-    def _load_json(self) -> dict[str, Any]:
-        if self._json_data is None:
-            with self.path.open("r", encoding="utf-8") as handle:
-                self._json_data = json.load(handle)
-        return self._json_data
-
     def list_keys(self, key_filter: str | None = None) -> list[str]:
         """Return keys available in the file."""
         keys = sorted(self._iter_entry_types().keys())
@@ -145,17 +135,6 @@ class LogReader:
         return keys
 
     def _iter_entry_types(self) -> dict[str, str]:
-        if self.format == "json":
-            payload = self._load_json()
-            entries = payload.get("entries", {})
-            if not isinstance(entries, dict):
-                return {}
-            return {
-                str(name): str(value.get("type", "unknown"))
-                for name, value in entries.items()
-                if isinstance(value, dict)
-            }
-
         if self.format != "wpilog":
             raise ValueError(f"Unsupported log format for key scan: {self.path}")
         if DataLogReader is None:
@@ -178,40 +157,21 @@ class LogReader:
         key_count = 0
         sample_count = 0
 
-        if self.format == "json":
-            payload = self._load_json()
-            entries = payload.get("entries", {})
-            if isinstance(entries, dict):
-                key_count = len(entries)
-                for entry_data in entries.values():
-                    if not isinstance(entry_data, dict):
-                        continue
-                    points = entry_data.get("data", [])
-                    if isinstance(points, list):
-                        sample_count += len(points)
-                        if points:
-                            first = points[0][0]
-                            last = points[-1][0]
-                            if isinstance(first, (int, float)):
-                                start_time = first if start_time is None else min(start_time, float(first))
-                            if isinstance(last, (int, float)):
-                                end_time = last if end_time is None else max(end_time, float(last))
-        elif self.format == "wpilog":
-            if DataLogReader is None:
-                raise RuntimeError("robotpy-wpiutil is required to read .wpilog files")
-            reader = DataLogReader(str(self.path))
-            key_names: set[str] = set()
-            for record in reader:
-                timestamp = _record_timestamp_sec(record)
-                start_time = timestamp if start_time is None else min(start_time, timestamp)
-                end_time = timestamp if end_time is None else max(end_time, timestamp)
-                sample_count += 1
-                if record.isStart():
-                    start_data = record.getStartData()
-                    key_names.add(str(start_data.name))
-            key_count = len(key_names)
-        else:
+        if self.format != "wpilog":
             raise ValueError(f"Unsupported log format: {self.path}")
+        if DataLogReader is None:
+            raise RuntimeError("robotpy-wpiutil is required to read .wpilog files")
+        reader = DataLogReader(str(self.path))
+        key_names: set[str] = set()
+        for record in reader:
+            timestamp = _record_timestamp_sec(record)
+            start_time = timestamp if start_time is None else min(start_time, timestamp)
+            end_time = timestamp if end_time is None else max(end_time, timestamp)
+            sample_count += 1
+            if record.isStart():
+                start_data = record.getStartData()
+                key_names.add(str(start_data.name))
+        key_count = len(key_names)
 
         duration = None
         if start_time is not None and end_time is not None:
@@ -237,8 +197,6 @@ class LogReader:
         end: float | None = None,
     ) -> list[tuple[float, Any]]:
         """Return timestamp-value points for a key."""
-        if self.format == "json":
-            return self._read_json_key_points(key=key, start=start, end=end)
         if self.format == "wpilog":
             return self._read_wpilog_key_points(key=key, start=start, end=end)
         raise ValueError(f"Unsupported log format: {self.path}")
@@ -252,38 +210,6 @@ class LogReader:
     ) -> dict[str, list[tuple[float, Any]]]:
         """Read points for multiple keys."""
         return {key: self.read_key_points(key, start=start, end=end) for key in keys}
-
-    def _read_json_key_points(
-        self,
-        *,
-        key: str,
-        start: float | None,
-        end: float | None,
-    ) -> list[tuple[float, Any]]:
-        payload = self._load_json()
-        entries = payload.get("entries", {})
-        if not isinstance(entries, dict):
-            return []
-        entry = entries.get(key)
-        if not isinstance(entry, dict):
-            return []
-        data = entry.get("data", [])
-        if not isinstance(data, list):
-            return []
-        points: list[tuple[float, Any]] = []
-        for item in data:
-            if not isinstance(item, list) or len(item) != 2:
-                continue
-            timestamp, value = item
-            if not isinstance(timestamp, (int, float)):
-                continue
-            timestamp = float(timestamp)
-            if start is not None and timestamp < start:
-                continue
-            if end is not None and timestamp > end:
-                continue
-            points.append((timestamp, value))
-        return points
 
     def _read_wpilog_key_points(
         self,

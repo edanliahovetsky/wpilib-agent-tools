@@ -47,7 +47,7 @@ def test_record_collects_values_from_reachable_server(tmp_path: Path) -> None:
             output_dir=tmp_path,
             poll_interval_sec=0.02,
         )
-        result = recorder.record(output_file="reachable.json")
+        result = recorder.record(output_file="reachable.wpilog")
     finally:
         stop_event.set()
         publisher.join(timeout=2.0)
@@ -64,4 +64,4 @@ def test_record_fails_when_server_unreachable(tmp_path: Path) -> None:
         output_dir=tmp_path,
     )
     with pytest.raises(RuntimeError, match="Unable to connect to NT4 server"):
-        recorder.record(output_file="unreachable.json")
+        recorder.record(output_file="unreachable.wpilog")
