@@ -8,17 +8,13 @@ from pathlib import Path
 
 
 CORE_TEMPLATE_FILE = "core_always_on.mdc"
-SCOPED_TEMPLATE_FILE = "scoped_optional.mdc"
 
 MODE_TEMPLATES: dict[str, list[str]] = {
     "core": [CORE_TEMPLATE_FILE],
-    "scoped": [SCOPED_TEMPLATE_FILE],
-    "both": [CORE_TEMPLATE_FILE, SCOPED_TEMPLATE_FILE],
 }
 
 OUTPUT_FILE_NAMES: dict[str, str] = {
     CORE_TEMPLATE_FILE: "wpilib-agent-tools-core.mdc",
-    SCOPED_TEMPLATE_FILE: "wpilib-agent-tools-scoped.mdc",
 }
 
 
@@ -49,9 +45,9 @@ def register_subparser(subparsers: argparse._SubParsersAction) -> None:
     install_parser = rule_subparsers.add_parser("install", help="Install rule templates.")
     install_parser.add_argument(
         "--mode",
-        choices=["core", "scoped", "both"],
+        choices=["core"],
         default="core",
-        help="Rule install mode. Default installs always-on core rule.",
+        help="Rule install mode. Installs the always-on core rule.",
     )
     install_parser.add_argument(
         "--target",

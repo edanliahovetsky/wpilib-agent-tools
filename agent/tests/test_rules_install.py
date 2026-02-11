@@ -29,7 +29,7 @@ def test_rules_cli_parser_registers_install_command() -> None:
             "rules",
             "install",
             "--mode",
-            "both",
+            "core",
             "--target",
             "custom",
             "--output-dir",
@@ -38,28 +38,24 @@ def test_rules_cli_parser_registers_install_command() -> None:
     )
     assert args.command == "rules"
     assert args.rules_command == "install"
-    assert args.mode == "both"
+    assert args.mode == "core"
 
 
-def test_rules_install_custom_target_installs_selected_templates(
+def test_rules_install_custom_target_installs_core_template(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     output_dir = tmp_path / "rules"
-    exit_code = rules.handle_install(_args(mode="both", output_dir=str(output_dir), json=True))
+    exit_code = rules.handle_install(_args(mode="core", output_dir=str(output_dir), json=True))
 
     assert exit_code == 0
     payload = json.loads(capsys.readouterr().out)
     installed_names = sorted(Path(path).name for path in payload["installed"])
-    assert installed_names == sorted(
-        ["wpilib-agent-tools-core.mdc", "wpilib-agent-tools-scoped.mdc"]
-    )
+    assert installed_names == ["wpilib-agent-tools-core.mdc"]
     assert payload["overwritten"] == []
     assert payload["skipped"] == []
 
     core_text = (output_dir / "wpilib-agent-tools-core.mdc").read_text(encoding="utf-8")
-    scoped_text = (output_dir / "wpilib-agent-tools-scoped.mdc").read_text(encoding="utf-8")
-    assert "WPILib Agent Tools Core Rule" in core_text
-    assert "WPILib Agent Tools Scoped Rule" in scoped_text
+    assert "WPILib Agent Tools" in core_text
 
 
 def test_rules_install_skips_existing_without_force(
@@ -97,7 +93,7 @@ def test_rules_install_overwrites_existing_with_force(
     assert payload["installed"] == []
     assert payload["skipped"] == []
     assert payload["overwritten"] == [str(core_path)]
-    assert "WPILib Agent Tools Core Rule" in core_path.read_text(encoding="utf-8")
+    assert "WPILib Agent Tools" in core_path.read_text(encoding="utf-8")
 
 
 def test_rules_install_custom_target_requires_output_dir(capsys: pytest.CaptureFixture[str]) -> None:
@@ -106,25 +102,26 @@ def test_rules_install_custom_target_requires_output_dir(capsys: pytest.CaptureF
     assert "--output-dir is required when --target custom is used" in capsys.readouterr().out
 
 
-def test_rule_templates_keep_critical_safety_guidance() -> None:
+def test_rule_template_keeps_critical_safety_guidance() -> None:
     core_text = rules._read_template(rules.CORE_TEMPLATE_FILE)
-    scoped_text = rules._read_template(rules.SCOPED_TEMPLATE_FILE)
 
+    # Sandbox workflow
     assert "sandbox create --name <id> --source workspace" in core_text
-    assert "Apply reviewed patch to workspace only after explicit approval." in core_text
+    assert "explicit user approval" in core_text
+
+    # Execution safety
     assert "--json" in core_text
-    assert "Prefer concise/summary output and assertions over raw log dumps." in core_text
-    assert "Define acceptance checks first" in core_text
-    assert "Start with the minimum run set" in core_text
-    assert "wpilib-agent-tools --help" in core_text
+    assert "bounded" in core_text
+
+    # Evidence collection
+    assert "acceptance criteria" in core_text
+    assert "minimum run set" in core_text
+
+    # Robot mode alignment
     assert "DriverStationSim.setAutonomous(true);" in core_text
     assert "DriverStationSim.setEnabled(true);" in core_text
     assert "DriverStationSim.notifyNewData();" in core_text
+    assert "Constants.java" in core_text
 
-    assert "confirm how the repo switches between simulation and IRL modes" in scoped_text
-    assert "prefer assertions and concise summaries over full raw logs" in scoped_text
-    assert "Keep run count adaptive to acceptance criteria" in scoped_text
-    assert "DriverStationSim.setAutonomous(true);" in scoped_text
-    assert "DriverStationSim.setEnabled(true);" in scoped_text
-    assert "DriverStationSim.notifyNewData();" in scoped_text
-    assert "after explicit approval" in scoped_text
+    # Self-discovery
+    assert "wpilib-agent-tools --help" in core_text

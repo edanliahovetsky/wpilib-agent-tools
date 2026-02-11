@@ -326,28 +326,16 @@ wpilib-agent-tools sandbox patch --name expA --output expA.diff
 
 ### rules
 
-Install Cursor rule templates for sandbox-oriented workflows.
+Install the Cursor rule template for sandbox-oriented workflows.
 
 ```bash
 wpilib-agent-tools rules install
-wpilib-agent-tools rules install --mode scoped
-wpilib-agent-tools rules install --mode both --force
+wpilib-agent-tools rules install --force
 wpilib-agent-tools rules install --target custom --output-dir /path/to/rules
-wpilib-agent-tools rules install --mode both --json
+wpilib-agent-tools rules install --json
 ```
 
-Modes:
-
-- `core` (default): always-on rule
-- `scoped`: optional Java-scoped reminders
-- `both`: install both templates
-
-Installed templates:
-
-| File | Applies when | Primary guidance |
-| --- | --- | --- |
-| `wpilib-agent-tools-core.mdc` | Always | Sandbox-first workflow, single-instance execution safety, robot mode alignment checks, patch-before-workspace rules |
-| `wpilib-agent-tools-scoped.mdc` | `**/*.java` | Robot-code reminders for mode-switch consistency, sandbox verification, and explicit-approval boundaries |
+Installs `wpilib-agent-tools-core.mdc` — a single always-on rule that covers sandbox-first workflow, execution safety, evidence collection, robot mode alignment, and self-discovery via `--help`.
 
 Behavior:
 
