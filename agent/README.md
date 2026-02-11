@@ -40,7 +40,7 @@ The design goal is safe iteration:
 - **Simulation orchestration**: run `./gradlew` tasks for fixed durations with single-instance enforcement.
 - **Log analysis**: inspect keys, compute metrics, derive series, reconstruct DriverStation state, and more.
 - **Graph generation**: output PNG plots for values, derivatives, and integrals.
-- **NetworkTables recording**: capture live NT4 streams into JSON logs.
+- **NetworkTables recording**: capture live NT4 streams into WPILOG files.
 - **Cursor rule installation**: install packaged `.mdc` templates for sandbox workflow guidance.
 
 ## Installation
@@ -50,7 +50,7 @@ The design goal is safe iteration:
 - Python `>=3.10`
 - Recommended environment: virtualenv or similar
 - Optional runtime dependencies:
-  - `robotpy-wpiutil` for reading `.wpilog`
+  - `robotpy-wpiutil` for `.wpilog` read/write support
   - `pyntcore` for `record`
   - `matplotlib` for `graph`
   - `sympy` for `math`
@@ -102,7 +102,7 @@ wpilib-agent-tools sandbox clean --name tune_shooter
 | `keys` | List keys in a selected log |
 | `query` | Run point/metric analysis over log data |
 | `graph` | Generate PNG graphs from key series |
-| `record` | Record live NT4 data to JSON |
+| `record` | Record live NT4 data to WPILOG |
 | `view` | Open a log in AdvantageScope/system opener |
 | `math` | Symbolic/numeric math operations |
 | `sim` | Run a bounded simulation task |
@@ -124,7 +124,7 @@ wpilib-agent-tools logs --summary
 wpilib-agent-tools logs --max-lines 20 --tail
 ```
 
-- Supports `.wpilog` and recorder `.json` files
+- Supports `.wpilog` files
 - Shows modified time, size, key count, and duration
 
 ### keys
@@ -208,7 +208,7 @@ wpilib-agent-tools graph --key "Arm/Position" --title "Arm Position" --output ar
 
 ### record
 
-Record live NT4 topics into JSON.
+Record live NT4 topics into WPILOG.
 
 ```bash
 wpilib-agent-tools record --address localhost --duration 10
@@ -271,7 +271,7 @@ Important behavior:
 - By default, `sim` auto-records NT4 data to `agent/logs` (`--record` is on by default).
 - You can control auto-recording with `--record-address`, `--record-delay`, and `--record-output`, or disable with `--no-record`.
 - Recorder failure does not fail the run if a new analyzable `.wpilog` is still generated during the same sim run.
-- `sim` fails with `no_log_file_found` when no new analyzable log (`.json` or `.wpilog`) is produced.
+- `sim` fails with `no_log_file_found` when no new analyzable `.wpilog` log is produced.
 - By default, output is concise and bounded; use `--verbose` to stream full Gradle output.
 - `--assert-key` and `--assert-range` support pass/fail validation without manual log scanning.
 - Unless `--no-analyze` is used, it reports the summary of the newly generated/updated log from that run.
@@ -332,38 +332,36 @@ wpilib-agent-tools sandbox patch --name expA --output expA.diff
 
 ### rules
 
-Install the Cursor rule template for sandbox-oriented workflows.
+Install Cursor rule templates for sandbox-oriented workflows.
 
 ```bash
 wpilib-agent-tools rules install
+wpilib-agent-tools rules install --mode all
 wpilib-agent-tools rules install --force
 wpilib-agent-tools rules install --target custom --output-dir /path/to/rules
 wpilib-agent-tools rules install --json
 ```
 
-Installs `wpilib-agent-tools-core.mdc` — a single always-on rule that covers sandbox-first workflow, execution safety, evidence collection, robot mode alignment, and self-discovery via `--help`.
+#### Modes
 
-Behavior:
+| Mode | Templates installed | Default? |
+| --- | --- | --- |
+| `core` | `wpilib-agent-tools-core.mdc` — sandbox-first workflow, execution safety, evidence collection, robot mode alignment, self-discovery via `--help` | Yes |
+| `all` | Everything in `core` plus example rules: `wpilib-agent-tools-token-efficient.mdc` — delegates broad searches and bulk output to subagents for lower context consumption | No |
+
+#### Behavior
 
 - Idempotent by default (existing files are skipped)
 - `--force` overwrites existing installed files
 - `--json` returns machine-readable install results
 - Templates are intentionally opinionated about safety: stop prior runs before new execution, keep iteration in sandboxes, and apply reviewed patches only after explicit approval
+- All installed templates use `alwaysApply: true` so Cursor applies them automatically once present
 
 ## Data Formats and Struct Decoding
 
 ### Supported log inputs
 
 - `.wpilog` (WPILib DataLog format)
-- `.json` recorder outputs from `record`
-
-### Recorder JSON shape
-
-`record` writes payloads like:
-
-- `source`, `address`, `start_time`, `duration_sec`
-- `entries`: map of topic name to `{ type, data }`
-- each `data` item: `[timestamp_sec, value]`
 
 ### Struct decoding in query
 

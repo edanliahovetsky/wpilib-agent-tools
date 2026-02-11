@@ -8,13 +8,16 @@ from pathlib import Path
 
 
 CORE_TEMPLATE_FILE = "core_always_on.mdc"
+TOKEN_EFFICIENT_TEMPLATE_FILE = "token_efficient_always_on.mdc"
 
 MODE_TEMPLATES: dict[str, list[str]] = {
     "core": [CORE_TEMPLATE_FILE],
+    "all": [CORE_TEMPLATE_FILE, TOKEN_EFFICIENT_TEMPLATE_FILE],
 }
 
 OUTPUT_FILE_NAMES: dict[str, str] = {
     CORE_TEMPLATE_FILE: "wpilib-agent-tools-core.mdc",
+    TOKEN_EFFICIENT_TEMPLATE_FILE: "wpilib-agent-tools-token-efficient.mdc",
 }
 
 
@@ -45,9 +48,9 @@ def register_subparser(subparsers: argparse._SubParsersAction) -> None:
     install_parser = rule_subparsers.add_parser("install", help="Install rule templates.")
     install_parser.add_argument(
         "--mode",
-        choices=["core"],
+        choices=["core", "all"],
         default="core",
-        help="Rule install mode. Installs the always-on core rule.",
+        help="Rule install mode. 'core' installs the always-on core rule (default). 'all' also installs example rules (token-efficient agent usage).",
     )
     install_parser.add_argument(
         "--target",
