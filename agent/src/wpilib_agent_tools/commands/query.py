@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from collections import deque
 from dataclasses import asdict
 from typing import Any
 
@@ -23,6 +24,7 @@ from wpilib_agent_tools.lib.analysis import (
     smooth_points,
 )
 from wpilib_agent_tools.lib.log_reader import LogReader, ensure_log_file, expand_log_glob
+from wpilib_agent_tools.lib.output import bound_lines, emit
 
 
 DS_KEYS = [
@@ -86,6 +88,14 @@ def register_subparser(subparsers: argparse._SubParsersAction) -> None:
     parser.add_argument("--start", type=float, help="Start timestamp seconds.")
     parser.add_argument("--end", type=float, help="End timestamp seconds.")
     parser.add_argument("--limit", type=int, help="Limit sample output for series-returning modes.")
+    parser.add_argument("--summary", action="store_true", help="Emit summary-only output.")
+    parser.add_argument("--max-lines", type=int, help="Maximum lines/items returned in output.")
+    parser.add_argument(
+        "--tail",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="When truncating, keep trailing lines/items (default: true).",
+    )
     parser.add_argument("--window", type=int, default=5, help="Window size for smooth mode.")
     parser.add_argument("--expr", help="Expression with {Log/Key} placeholders for expr mode.")
     parser.add_argument("--above", type=float, help="Threshold for event detection above this value.")
@@ -106,6 +116,7 @@ def register_subparser(subparsers: argparse._SubParsersAction) -> None:
         help="Settling band as fraction (e.g. 0.02 for +/-2%%).",
     )
     parser.add_argument("--json", action="store_true", help="Emit JSON output.")
+    parser.add_argument("--json-compact", action="store_true", help="Emit compact JSON output.")
     parser.set_defaults(handler=handle_query)
 
 
@@ -133,6 +144,60 @@ def _format_value_for_text(value: Any) -> str:
     if isinstance(value, (dict, list, tuple)):
         return json.dumps(_json_safe(value), sort_keys=True)
     return str(value)
+
+
+def _bound_items(items: list[Any], *, max_items: int | None, tail: bool) -> tuple[list[Any], dict[str, Any]]:
+    total = len(items)
+    if max_items is None or max_items <= 0 or total <= max_items:
+        return items, {"total": total, "returned": total, "truncated": False, "tail": tail}
+    if tail:
+        bounded = list(deque(items, maxlen=max_items))
+    else:
+        bounded = items[:max_items]
+    return bounded, {"total": total, "returned": len(bounded), "truncated": True, "tail": tail}
+
+
+def _trim_result_item(item: dict[str, Any], *, max_items: int | None, tail: bool) -> dict[str, Any]:
+    trimmed = dict(item)
+    output_summary: dict[str, Any] = {}
+    for key in ("values", "events", "components"):
+        value = trimmed.get(key)
+        if isinstance(value, list):
+            bounded, meta = _bound_items(value, max_items=max_items, tail=tail)
+            trimmed[key] = bounded
+            output_summary[key] = meta
+    series = trimmed.get("series")
+    if isinstance(series, dict):
+        bounded_series: dict[str, Any] = {}
+        series_meta: dict[str, Any] = {}
+        for key, value in series.items():
+            if isinstance(value, list):
+                bounded, meta = _bound_items(value, max_items=max_items, tail=tail)
+                bounded_series[key] = bounded
+                series_meta[key] = meta
+            else:
+                bounded_series[key] = value
+        trimmed["series"] = bounded_series
+        output_summary["series"] = series_meta
+    if output_summary:
+        trimmed["output_summary"] = output_summary
+    return trimmed
+
+
+def _summarize_result_item(item: dict[str, Any]) -> dict[str, Any]:
+    summary: dict[str, Any] = {}
+    for key, value in item.items():
+        if key in {"values", "events", "components"} and isinstance(value, list):
+            summary[f"{key}_count"] = len(value)
+            continue
+        if key == "series" and isinstance(value, dict):
+            summary["series_counts"] = {
+                series_key: len(series_value) if isinstance(series_value, list) else None
+                for series_key, series_value in value.items()
+            }
+            continue
+        summary[key] = value
+    return summary
 
 
 def _run_single_query(reader: LogReader, args: argparse.Namespace) -> dict[str, Any]:
@@ -305,61 +370,90 @@ def handle_query(args: argparse.Namespace) -> int:
         print(str(exc))
         return 1
 
+    processed_results = results
+    if args.summary:
+        processed_results = [_summarize_result_item(item) for item in processed_results]
+    elif args.max_lines is not None:
+        processed_results = [
+            _trim_result_item(item, max_items=args.max_lines, tail=args.tail) for item in processed_results
+        ]
+
     if args.json:
-        payload = {"results": _json_safe(results)}
-        print(json.dumps(payload, indent=2))
+        payload = {"results": _json_safe(processed_results)}
+        emit(payload, as_json=True, compact_json=args.json_compact)
         return 0
 
-    for item in results:
-        print(f"File: {item['file']}")
-        print(f"Mode: {item['mode']}")
+    output_lines: list[str] = []
+    for item in processed_results:
+        output_lines.append(f"File: {item['file']}")
+        output_lines.append(f"Mode: {item['mode']}")
         if item["mode"] == "timestamps":
-            print(f"  Start: {item.get('start_time')}")
-            print(f"  End:   {item.get('end_time')}")
-            print(f"  Count: {item.get('count')}")
+            output_lines.append(f"  Start: {item.get('start_time')}")
+            output_lines.append(f"  End:   {item.get('end_time')}")
+            output_lines.append(f"  Count: {item.get('count')}")
         elif item["mode"] == "values":
             for timestamp, value in item.get("values", []):
-                print(f"  {timestamp:.6f}: {_format_value_for_text(value)}")
+                output_lines.append(f"  {timestamp:.6f}: {_format_value_for_text(value)}")
+            if "values_count" in item:
+                output_lines.append(f"  Values count: {item.get('values_count')}")
         elif item["mode"] == "avg":
-            print(f"  Average: {item.get('average')}")
+            output_lines.append(f"  Average: {item.get('average')}")
         elif item["mode"] == "minmax":
-            print(f"  Min/Max: {item.get('minmax')}")
+            output_lines.append(f"  Min/Max: {item.get('minmax')}")
         elif item["mode"] in {"deriv", "integral"}:
             for timestamp, value in item.get("values", []):
-                print(f"  {timestamp:.6f}: {_format_value_for_text(value)}")
+                output_lines.append(f"  {timestamp:.6f}: {_format_value_for_text(value)}")
+            if "values_count" in item:
+                output_lines.append(f"  Values count: {item.get('values_count')}")
         elif item["mode"] == "stats":
-            print(f"  Stats: {item.get('stats')}")
+            output_lines.append(f"  Stats: {item.get('stats')}")
         elif item["mode"] == "smooth":
             for timestamp, value in item.get("values", []):
-                print(f"  {timestamp:.6f}: {_format_value_for_text(value)}")
+                output_lines.append(f"  {timestamp:.6f}: {_format_value_for_text(value)}")
+            if "values_count" in item:
+                output_lines.append(f"  Values count: {item.get('values_count')}")
         elif item["mode"] == "threshold":
             events = item.get("events", [])
-            print(f"  Events: {len(events)}")
+            output_lines.append(f"  Events: {len(events)}")
             for event in events:
-                print(
+                output_lines.append(
                     "    "
                     f"start={event['start_time']:.6f} "
                     f"end={event['end_time']:.6f} "
                     f"duration={event['duration']:.6f} "
                     f"peak={event['peak_value']}"
                 )
+            if "events_count" in item:
+                output_lines.append(f"  Total events: {item.get('events_count')}")
         elif item["mode"] == "rms":
-            print(f"  RMS: {item.get('rms')}")
+            output_lines.append(f"  RMS: {item.get('rms')}")
         elif item["mode"] == "expr":
-            print(f"  Expression: {item.get('expr')}")
+            output_lines.append(f"  Expression: {item.get('expr')}")
             for timestamp, value in item.get("values", []):
-                print(f"  {timestamp:.6f}: {_format_value_for_text(value)}")
+                output_lines.append(f"  {timestamp:.6f}: {_format_value_for_text(value)}")
+            if "values_count" in item:
+                output_lines.append(f"  Values count: {item.get('values_count')}")
         elif item["mode"] == "fft":
             for component in item.get("components", []):
-                print(
+                output_lines.append(
                     f"  {component['frequency_hz']:.6f} Hz: "
                     f"{component['magnitude']}"
                 )
+            if "components_count" in item:
+                output_lines.append(f"  Components count: {item.get('components_count')}")
         elif item["mode"] == "settle":
-            print(f"  Settle: {item.get('settle')}")
+            output_lines.append(f"  Settle: {item.get('settle')}")
         elif item["mode"] == "ds":
-            print("  State:")
+            output_lines.append("  State:")
             for key, value in item.get("state", {}).items():
-                print(f"    {key}: {_format_value_for_text(value)}")
-        print("")
+                output_lines.append(f"    {key}: {_format_value_for_text(value)}")
+            if "series_counts" in item:
+                output_lines.append(f"  Series counts: {item.get('series_counts')}")
+        output_lines.append("")
+    bounded_lines, bounds = bound_lines(output_lines, max_lines=args.max_lines, tail=args.tail)
+    for line in bounded_lines:
+        print(line)
+    if bounds["truncated"]:
+        direction = "tail" if args.tail else "head"
+        print(f"... truncated to {bounds['returned_lines']} lines ({direction})")
     return 0

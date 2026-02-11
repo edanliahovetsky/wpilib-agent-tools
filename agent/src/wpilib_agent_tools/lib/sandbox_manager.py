@@ -9,6 +9,7 @@ import shutil
 import signal
 import subprocess
 import time
+from collections import deque
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -289,11 +290,21 @@ class SandboxManager:
         command: list[str],
         *,
         detach: bool = False,
+        verbose: bool = False,
+        max_lines: int | None = 120,
+        tail: bool = True,
+        include: str | None = None,
         env: dict[str, str] | None = None,
     ) -> dict[str, Any]:
         """Run a command inside a sandbox, tracking lifecycle metadata."""
         if not command:
             raise SandboxError("sandbox run requires a command")
+        include_re: re.Pattern[str] | None = None
+        if include:
+            try:
+                include_re = re.compile(include)
+            except re.error as exc:
+                raise SandboxError(f"Invalid --include regex: {exc}") from exc
         with self._lock(name):
             meta = self._read_metadata(name)
             sandbox_path = Path(meta["path"])
@@ -308,12 +319,21 @@ class SandboxManager:
             run_env["WPILIB_AGENT_TOOLS_SANDBOX"] = "1"
             run_env["WPILIB_AGENT_TOOLS_SANDBOX_NAME"] = name
 
-            process = subprocess.Popen(
-                command,
-                cwd=str(sandbox_path),
-                env=run_env,
-                preexec_fn=os.setsid,
-            )
+            popen_kwargs: dict[str, Any] = {
+                "cwd": str(sandbox_path),
+                "env": run_env,
+                "preexec_fn": os.setsid,
+            }
+            if not detach and not verbose:
+                popen_kwargs.update(
+                    {
+                        "stdout": subprocess.PIPE,
+                        "stderr": subprocess.STDOUT,
+                        "text": True,
+                        "bufsize": 1,
+                    }
+                )
+            process = subprocess.Popen(command, **popen_kwargs)
             pgid = os.getpgid(process.pid)
             meta["status"] = "running"
             meta["active_job"] = {
@@ -334,7 +354,56 @@ class SandboxManager:
                 "detached": True,
             }
 
-        return_code = process.wait()
+        output_excerpt: list[str] = []
+        output_summary: dict[str, Any] | None = None
+        output_artifact: str | None = None
+        if verbose:
+            return_code = process.wait()
+        else:
+            reports_dir = sandbox_path / "agent" / "reports"
+            reports_dir.mkdir(parents=True, exist_ok=True)
+            artifact_path = reports_dir / f"sandbox-run-{int(time.time() * 1000)}.log"
+            output_artifact = str(artifact_path)
+
+            selected_head: list[str] = []
+            selected_tail: deque[str] = deque(maxlen=max_lines if max_lines and max_lines > 0 else None)
+            total_lines = 0
+            included_lines = 0
+            with artifact_path.open("w", encoding="utf-8") as artifact:
+                stream = process.stdout
+                if stream is not None:
+                    for raw_line in stream:
+                        artifact.write(raw_line)
+                        total_lines += 1
+                        line = raw_line.rstrip("\n")
+                        if include_re and not include_re.search(line):
+                            continue
+                        included_lines += 1
+                        if max_lines is None or max_lines <= 0:
+                            selected_head.append(line)
+                            continue
+                        if tail:
+                            selected_tail.append(line)
+                        elif len(selected_head) < max_lines:
+                            selected_head.append(line)
+            return_code = process.wait()
+            if max_lines is None or max_lines <= 0:
+                output_excerpt = selected_head
+            elif tail:
+                output_excerpt = list(selected_tail)
+            else:
+                output_excerpt = selected_head
+            output_summary = {
+                "total_lines": total_lines,
+                "included_lines": included_lines,
+                "returned_lines": len(output_excerpt),
+                "truncated": included_lines > len(output_excerpt),
+                "tail": tail,
+                "max_lines": max_lines,
+                "include": include,
+                "artifact": output_artifact,
+            }
+
         with self._lock(name):
             meta = self._read_metadata(name)
             meta["status"] = "idle"
@@ -346,6 +415,10 @@ class SandboxManager:
             "path": str(sandbox_path),
             "exit_code": return_code,
             "detached": False,
+            "verbose": verbose,
+            "output_excerpt": output_excerpt,
+            "output_summary": output_summary,
+            "output_artifact": output_artifact,
         }
 
     def stop(self, name: str, *, force: bool = False) -> dict[str, Any]:

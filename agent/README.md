@@ -109,7 +109,7 @@ wpilib-agent-tools sandbox clean --name tune_shooter
 | `sandbox` | Full sandbox lifecycle management |
 | `rules` | Install Cursor rule templates |
 
-Most commands support `--json` for machine-readable output. `view` is intentionally human-oriented and does not expose JSON mode.
+Most commands support `--json` for machine-readable output (and many support `--json-compact` for lower-overhead output). `view` is intentionally human-oriented and does not expose JSON mode.
 
 ## Detailed Command Reference
 
@@ -120,6 +120,8 @@ List log files (newest-first) and metadata.
 ```bash
 wpilib-agent-tools logs --dir agent/logs
 wpilib-agent-tools logs --dir agent/logs --json
+wpilib-agent-tools logs --summary
+wpilib-agent-tools logs --max-lines 20 --tail
 ```
 
 - Supports `.wpilog` and recorder `.json` files
@@ -133,6 +135,8 @@ List keys from a selected log.
 wpilib-agent-tools keys --file agent/logs/run.wpilog
 wpilib-agent-tools keys --filter shooter
 wpilib-agent-tools keys --json
+wpilib-agent-tools keys --summary
+wpilib-agent-tools keys --max-lines 50 --tail
 ```
 
 - If `--file` is omitted, uses the latest log in `agent/logs`
@@ -146,6 +150,8 @@ Query and analyze key data in logs.
 wpilib-agent-tools query --mode values --key "Shooter/Velocity" --limit 20
 wpilib-agent-tools query --mode avg --key "Shooter/Velocity"
 wpilib-agent-tools query --mode stats --key "Shooter/Velocity" --json
+wpilib-agent-tools query --mode values --key "Shooter/Velocity" --summary
+wpilib-agent-tools query --mode threshold --key "PDH/Current" --above 40 --max-lines 25
 ```
 
 Common options:
@@ -153,6 +159,8 @@ Common options:
 - `--file`: path or glob (for example `agent/logs/*.wpilog`)
 - `--start`, `--end`: time bounds (seconds)
 - `--limit`: cap returned samples for series-returning modes
+- `--summary`: omit heavy series payloads and return counts/aggregates
+- `--max-lines`, `--tail`: cap row-heavy output in text/JSON
 - `--json`: structured results
 
 #### query modes
@@ -247,6 +255,10 @@ Run a simulation Gradle task for a bounded duration.
 ```bash
 wpilib-agent-tools sim --duration 15 --gradle-task simulateJava --direct-workspace
 wpilib-agent-tools sim --duration 20 --no-analyze --json --direct-workspace
+wpilib-agent-tools sim --duration 12 --assert-key Shooter/turretUsedUnwindFallback --direct-workspace
+wpilib-agent-tools sim --duration 12 --assert-range Shooter/turretResolvedSetpointDeg -450 630 --direct-workspace
+wpilib-agent-tools sim --duration 12 --max-lines 80 --tail --include "WARN|ERROR|turret" --direct-workspace
+wpilib-agent-tools sim --duration 12 --verbose --direct-workspace
 ```
 
 Important behavior:
@@ -254,6 +266,8 @@ Important behavior:
 - By default, direct workspace execution is blocked for safety.
 - Normal path is `sandbox run --name <id> -- sim ...`.
 - `sim` enforces one active instance by stopping prior tracked sim process before starting a new run.
+- By default, output is concise and bounded; use `--verbose` to stream full Gradle output.
+- `--assert-key` and `--assert-range` support pass/fail validation without manual log scanning.
 - Unless `--no-analyze` is used, it reports latest log summary after completion.
 
 ### sandbox
@@ -288,9 +302,13 @@ wpilib-agent-tools sandbox status --name expA --json
 wpilib-agent-tools sandbox run --name expA -- sim --duration 15
 wpilib-agent-tools sandbox run --name expA -- query --mode avg --key "Shooter/Velocity"
 wpilib-agent-tools sandbox run --name expA --detach -- ./gradlew test
+wpilib-agent-tools sandbox run --name expA --max-lines 80 --tail --include "WARN|ERROR" -- sim --duration 15
+wpilib-agent-tools sandbox run --name expA --verbose -- ./gradlew test
 ```
 
 - Add `--detach` to return immediately and keep process running in sandbox
+- Attached runs are concise by default; `--verbose` streams full child output
+- `--max-lines`, `--tail`, and `--include` bound returned output excerpts
 - Internal CLI commands (`sim`, `query`, etc.) are mapped automatically
 
 #### stop, clean, patch
@@ -406,7 +424,8 @@ Best-effort cleanup utility that stops common lingering tool/sim processes befor
 
    ```bash
    wpilib-agent-tools sandbox run --name tune_shooter -- sim --duration 15
-   wpilib-agent-tools sandbox run --name tune_shooter -- query --mode stats --key "Shooter/Velocity" --json
+   wpilib-agent-tools sandbox run --name tune_shooter -- sim --duration 15 --assert-key Shooter/turretUsedUnwindFallback
+   wpilib-agent-tools sandbox run --name tune_shooter -- query --mode stats --key "Shooter/Velocity" --summary --json
    wpilib-agent-tools sandbox run --name tune_shooter -- graph --key "Shooter/Velocity" --output shooter.png
    ```
 
@@ -423,6 +442,13 @@ Best-effort cleanup utility that stops common lingering tool/sim processes befor
    ```bash
    wpilib-agent-tools sandbox clean --name tune_shooter
    ```
+
+## Adaptive Validation Guidance
+
+- Define acceptance checks before running simulation.
+- Start with the minimum run set and expand only if a check is failing or inconclusive.
+- Keep output bounded by default; use verbose output only for targeted debug passes.
+- Prefer assertion-based checks and summary queries over raw log scans.
 
 ## Troubleshooting
 

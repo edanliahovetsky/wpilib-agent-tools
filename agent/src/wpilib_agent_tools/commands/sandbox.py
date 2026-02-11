@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 
 from wpilib_agent_tools.lib.sandbox_manager import SandboxError, SandboxManager, format_sandbox_row
+from wpilib_agent_tools.lib.output import emit
 
 
 INTERNAL_COMMANDS = {"sim", "logs", "keys", "query", "math", "graph", "record", "view", "sandbox"}
@@ -31,7 +32,22 @@ def register_subparser(subparsers: argparse._SubParsersAction) -> None:
     run_parser = sandbox_subparsers.add_parser("run", help="Run a command in sandbox.")
     run_parser.add_argument("--name", required=True, help="Sandbox name.")
     run_parser.add_argument("--detach", action="store_true", help="Run in background and return immediately.")
+    run_parser.add_argument("--verbose", action="store_true", help="Stream child output directly.")
+    run_parser.add_argument(
+        "--max-lines",
+        type=int,
+        default=120,
+        help="Maximum output lines returned when not verbose (<=0 means unlimited).",
+    )
+    run_parser.add_argument(
+        "--tail",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="When truncating output, keep trailing lines (default: true).",
+    )
+    run_parser.add_argument("--include", help="Optional regex filter for returned output lines.")
     run_parser.add_argument("--json", action="store_true", help="Emit JSON output.")
+    run_parser.add_argument("--json-compact", action="store_true", help="Emit compact JSON output.")
     run_parser.add_argument("command", nargs=argparse.REMAINDER, help="Command to run after `--`.")
     run_parser.set_defaults(handler=handle_run)
 
@@ -61,11 +77,8 @@ def register_subparser(subparsers: argparse._SubParsersAction) -> None:
     patch_parser.set_defaults(handler=handle_patch)
 
 
-def _emit(payload: object, as_json: bool) -> None:
-    if as_json:
-        print(json.dumps(payload, indent=2))
-    else:
-        print(payload)
+def _emit(payload: object, as_json: bool, *, compact_json: bool = False) -> None:
+    emit(payload, as_json=as_json, compact_json=compact_json)
 
 
 def _manager() -> SandboxManager:
@@ -79,7 +92,7 @@ def handle_create(args: argparse.Namespace) -> int:
     except (SandboxError, RuntimeError) as exc:
         print(str(exc))
         return 1
-    _emit(payload, args.json)
+    _emit(payload, args.json, compact_json=getattr(args, "json_compact", False))
     return 0
 
 
@@ -114,14 +127,41 @@ def handle_run(args: argparse.Namespace) -> int:
     manager = _manager()
     try:
         command = _prepare_command(args.command)
-        payload = manager.run(name=args.name, command=command, detach=args.detach)
+        payload = manager.run(
+            name=args.name,
+            command=command,
+            detach=args.detach,
+            verbose=args.verbose,
+            max_lines=args.max_lines,
+            tail=args.tail,
+            include=args.include,
+        )
     except (SandboxError, RuntimeError) as exc:
         print(str(exc))
         return 1
     if args.json:
-        _emit(payload, True)
+        _emit(payload, True, compact_json=args.json_compact)
     elif args.detach:
         print(f"Started detached job pid={payload.get('pid')} in sandbox '{args.name}'")
+    elif args.verbose:
+        print(
+            f"Completed sandbox run in '{args.name}' "
+            f"(exit_code={payload.get('exit_code')})."
+        )
+    else:
+        summary = payload.get("output_summary") or {}
+        print(
+            f"Completed sandbox run in '{args.name}' "
+            f"(exit_code={payload.get('exit_code')}, lines={summary.get('included_lines', 0)})."
+        )
+        excerpt = payload.get("output_excerpt") or []
+        if excerpt:
+            print("Output excerpt:")
+            for line in excerpt:
+                print(f"  {line}")
+        artifact = payload.get("output_artifact")
+        if artifact:
+            print(f"Full output saved to: {artifact}")
     return int(payload.get("exit_code", 0))
 
 
@@ -137,7 +177,7 @@ def handle_status(args: argparse.Namespace) -> int:
         return 1
 
     if args.json:
-        _emit(payload, True)
+        _emit(payload, True, compact_json=getattr(args, "json_compact", False))
         return 0
 
     if isinstance(payload, list):
@@ -161,7 +201,7 @@ def handle_stop(args: argparse.Namespace) -> int:
     except SandboxError as exc:
         print(str(exc))
         return 1
-    _emit(payload, args.json)
+    _emit(payload, args.json, compact_json=getattr(args, "json_compact", False))
     return 0 if payload.get("stopped") else 1
 
 
@@ -177,7 +217,7 @@ def handle_clean(args: argparse.Namespace) -> int:
     except SandboxError as exc:
         print(str(exc))
         return 1
-    _emit(payload, args.json)
+    _emit(payload, args.json, compact_json=getattr(args, "json_compact", False))
     return 0
 
 
@@ -194,10 +234,14 @@ def handle_patch(args: argparse.Namespace) -> int:
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_text(patch_text, encoding="utf-8")
         payload = {"name": args.name, "output": str(output_path), "bytes": len(patch_text.encode("utf-8"))}
-        _emit(payload, args.json)
+        _emit(payload, args.json, compact_json=getattr(args, "json_compact", False))
     else:
         if args.json:
-            _emit({"name": args.name, "patch": patch_text}, True)
+            _emit(
+                {"name": args.name, "patch": patch_text},
+                True,
+                compact_json=getattr(args, "json_compact", False),
+            )
         else:
             print(patch_text)
     return 0
