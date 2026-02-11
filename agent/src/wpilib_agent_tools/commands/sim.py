@@ -68,6 +68,23 @@ def _resolve_record_output_path(log_dir: Path, output_arg: str | None) -> Path:
     return log_dir / f"sim-nt4-{int(time.time() * 1000)}.json"
 
 
+def _record_grace_timeout(
+    *,
+    started_at: float | None,
+    duration_sec: float,
+    interrupted: bool,
+) -> float:
+    """How long to wait for recorder to flush before forcing termination."""
+    if interrupted:
+        return 0.2
+    if started_at is None:
+        return 1.0
+    expected_end = started_at + max(0.0, duration_sec)
+    remaining = max(0.0, expected_end - time.monotonic())
+    # For normal sim completion this is usually ~1s; cap long waits if sim exits early.
+    return max(1.0, min(5.0, remaining + 1.0))
+
+
 def _is_running(pid: int) -> bool:
     try:
         os.kill(pid, 0)
@@ -345,6 +362,7 @@ def handle_sim(args: argparse.Namespace) -> int:
     record_process: subprocess.Popen[str] | None = None
     record_output_path: Path | None = None
     record_started = False
+    record_started_at: float | None = None
     record_duration = 0.0
     record_delay = 0.0
     record_stderr = ""
@@ -392,6 +410,7 @@ def handle_sim(args: argparse.Namespace) -> int:
                     preexec_fn=os.setsid,
                 )
                 record_started = True
+                record_started_at = time.monotonic()
             if process_status is not None:
                 break
             if elapsed >= args.duration:
@@ -415,18 +434,26 @@ def handle_sim(args: argparse.Namespace) -> int:
                 process.wait(timeout=5.0)
         if record_process is not None:
             if record_process.poll() is None:
+                wait_timeout = _record_grace_timeout(
+                    started_at=record_started_at,
+                    duration_sec=record_duration,
+                    interrupted=interrupted,
+                )
                 try:
-                    os.killpg(os.getpgid(record_process.pid), signal.SIGTERM)
-                except ProcessLookupError:
-                    pass
-                try:
-                    record_process.wait(timeout=5.0)
+                    record_process.wait(timeout=wait_timeout)
                 except subprocess.TimeoutExpired:
                     try:
-                        os.killpg(os.getpgid(record_process.pid), signal.SIGKILL)
+                        os.killpg(os.getpgid(record_process.pid), signal.SIGTERM)
                     except ProcessLookupError:
                         pass
-                    record_process.wait(timeout=5.0)
+                    try:
+                        record_process.wait(timeout=2.0)
+                    except subprocess.TimeoutExpired:
+                        try:
+                            os.killpg(os.getpgid(record_process.pid), signal.SIGKILL)
+                        except ProcessLookupError:
+                            pass
+                        record_process.wait(timeout=5.0)
             try:
                 _, record_stderr = record_process.communicate(timeout=0.1)
             except subprocess.TimeoutExpired:

@@ -80,7 +80,8 @@ def _install_runtime_fakes(
     *,
     generated_log: Path | None,
     record_exit_code: int,
-) -> list[list[str]]:
+    record_done_at: float = 100.0,
+) -> tuple[list[list[str]], list[tuple[int, Any]]]:
     logs_dir = tmp_path / "agent" / "logs"
     logs_dir.mkdir(parents=True, exist_ok=True)
     monkeypatch.chdir(tmp_path)
@@ -90,7 +91,8 @@ def _install_runtime_fakes(
     monkeypatch.setattr(sim, "_kill_prior_instance", lambda: {"killed": False})
     monkeypatch.setattr(sim, "_sim_pid_file", lambda: tmp_path / "sim.pid")
     monkeypatch.setattr(sim.os, "getpgid", lambda pid: pid)
-    monkeypatch.setattr(sim.os, "killpg", lambda _pgid, _sig: None)
+    kill_calls: list[tuple[int, Any]] = []
+    monkeypatch.setattr(sim.os, "killpg", lambda pgid, sig: kill_calls.append((pgid, sig)))
 
     clock = _FakeClock()
     monkeypatch.setattr(sim.time, "monotonic", clock.monotonic)
@@ -108,20 +110,20 @@ def _install_runtime_fakes(
         return _FakeProcess(
             pid=pid_counter["next"],
             clock=clock,
-            done_at=100.0,
+            done_at=record_done_at,
             return_code=record_exit_code,
             stderr_text="record-failed" if record_exit_code != 0 else "",
         )
 
     monkeypatch.setattr(sim.subprocess, "Popen", fake_popen)
-    return commands
+    return commands, kill_calls
 
 
 def test_sim_auto_record_enabled_by_default_and_invoked(
     monkeypatch: Any, tmp_path: Path, capsys: Any
 ) -> None:
     generated_log = tmp_path / "agent" / "logs" / "generated.json"
-    commands = _install_runtime_fakes(
+    commands, _kill_calls = _install_runtime_fakes(
         monkeypatch,
         tmp_path,
         generated_log=generated_log,
@@ -146,7 +148,7 @@ def test_sim_fallback_to_wpilog_when_record_fails(
     monkeypatch: Any, tmp_path: Path, capsys: Any
 ) -> None:
     generated_log = tmp_path / "agent" / "logs" / "generated.wpilog"
-    _install_runtime_fakes(
+    _commands, _kill_calls = _install_runtime_fakes(
         monkeypatch,
         tmp_path,
         generated_log=generated_log,
@@ -166,7 +168,7 @@ def test_sim_fallback_to_wpilog_when_record_fails(
 def test_sim_fails_when_no_generated_log(
     monkeypatch: Any, tmp_path: Path, capsys: Any
 ) -> None:
-    _install_runtime_fakes(
+    _commands, _kill_calls = _install_runtime_fakes(
         monkeypatch,
         tmp_path,
         generated_log=None,
@@ -180,3 +182,25 @@ def test_sim_fails_when_no_generated_log(
     payload = json.loads(capsys.readouterr().out)
     assert payload["log_generation"]["passed"] is False
     assert payload["log_generation"]["reason"] == "no_log_file_found"
+
+
+def test_sim_waits_for_recorder_flush_before_terminate(
+    monkeypatch: Any, tmp_path: Path, capsys: Any
+) -> None:
+    generated_log = tmp_path / "agent" / "logs" / "generated.json"
+    _commands, kill_calls = _install_runtime_fakes(
+        monkeypatch,
+        tmp_path,
+        generated_log=generated_log,
+        record_exit_code=0,
+        record_done_at=2.8,
+    )
+    args = _sim_args()
+
+    exit_code = sim.handle_sim(args)
+
+    assert exit_code == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["recording"]["started"] is True
+    # Regression check: recorder should be allowed to exit naturally.
+    assert kill_calls == []
