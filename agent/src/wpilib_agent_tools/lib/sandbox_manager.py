@@ -68,6 +68,7 @@ class SandboxManager:
     """Create/run/inspect/stop/clean isolated sandboxes."""
 
     NAME_PATTERN = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$")
+    STALE_LOCK_MAX_AGE_SEC = 6 * 3600
 
     def __init__(self, workspace_root: str | Path | None = None) -> None:
         self.workspace_root = Path(workspace_root or os.getcwd()).resolve()
@@ -100,6 +101,49 @@ class SandboxManager:
     def _lock_path(self, name: str) -> Path:
         return self.paths.locks / f"{name}.lock"
 
+    def _parse_lock_file(self, lock_file: Path) -> tuple[int | None, float | None]:
+        try:
+            raw = lock_file.read_text(encoding="utf-8").strip()
+        except OSError:
+            return None, None
+        if not raw:
+            return None, None
+        parts = raw.split()
+        if len(parts) < 2:
+            return None, None
+        try:
+            pid = int(parts[0])
+        except ValueError:
+            pid = None
+        try:
+            started = float(parts[1])
+        except ValueError:
+            started = None
+        return pid, started
+
+    def _reap_stale_lock(self, lock_file: Path) -> bool:
+        if not lock_file.exists():
+            return False
+        pid, started = self._parse_lock_file(lock_file)
+        now = time.time()
+        age = (now - started) if started is not None else None
+
+        if pid is not None and _is_process_running(pid):
+            # Keep live locks unless they are extremely old.
+            if age is None or age < self.STALE_LOCK_MAX_AGE_SEC:
+                return False
+        elif age is not None and age < self.STALE_LOCK_MAX_AGE_SEC:
+            # If lock owner is unknown and lock is recent, avoid false unlock.
+            return False
+
+        try:
+            lock_file.unlink()
+            return True
+        except FileNotFoundError:
+            return False
+        except OSError:
+            return False
+
     def _read_metadata(self, name: str) -> dict[str, Any]:
         meta_file = self._metadata_path(name)
         if not meta_file.exists():
@@ -116,12 +160,21 @@ class SandboxManager:
     @contextmanager
     def _lock(self, name: str) -> Iterator[None]:
         lock_file = self._lock_path(name)
-        try:
-            fd = os.open(str(lock_file), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-        except FileExistsError as exc:
+        fd: int | None = None
+        for _attempt in range(2):
+            try:
+                fd = os.open(str(lock_file), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+                break
+            except FileExistsError as exc:
+                if self._reap_stale_lock(lock_file):
+                    continue
+                raise SandboxError(
+                    f"Sandbox '{name}' is currently locked by another operation."
+                ) from exc
+        if fd is None:
             raise SandboxError(
                 f"Sandbox '{name}' is currently locked by another operation."
-            ) from exc
+            )
 
         try:
             os.write(fd, f"{os.getpid()} {time.time()}\n".encode("utf-8"))
@@ -333,7 +386,16 @@ class SandboxManager:
                         "bufsize": 1,
                     }
                 )
-            process = subprocess.Popen(command, **popen_kwargs)
+            try:
+                process = subprocess.Popen(command, **popen_kwargs)
+            except FileNotFoundError as exc:
+                raise SandboxError(
+                    f"Command not found in sandbox '{name}': {command[0]}"
+                ) from exc
+            except OSError as exc:
+                raise SandboxError(
+                    f"Failed to launch command in sandbox '{name}': {exc}"
+                ) from exc
             pgid = os.getpgid(process.pid)
             meta["status"] = "running"
             meta["active_job"] = {

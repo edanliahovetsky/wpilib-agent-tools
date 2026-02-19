@@ -177,7 +177,7 @@ Common options:
 | `integral` | integral time series | `--key`, `--limit` |
 | `stats` | count, mean, stddev, percentiles | `--key` |
 | `smooth` | moving-average series | `--key`, `--window`, `--limit` |
-| `threshold` | threshold events and durations | `--key`, `--above` and/or `--below`, `--min-duration` |
+| `threshold` | threshold events and durations | `--key`, exactly one of `--above` or `--below`, `--min-duration` |
 | `rms` | RMS scalar | `--key` |
 | `expr` | expression-evaluated series | `--expr`, `--limit` |
 | `fft` | dominant frequency components | `--key`, `--top` |

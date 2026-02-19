@@ -38,7 +38,7 @@ Exit code:
 
 ## Notes On Sim Exit Code
 
-`sim` commonly exits with `143` for bounded-duration termination. Treat this as expected when log and telemetry checks pass.
+Bounded sim runs intentionally terminate the gradle process. In CLI output, `exit_code` is normalized to success while `exit_code_raw` may still be `143`.
 
 ## Troubleshooting
 

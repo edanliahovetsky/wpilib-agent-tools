@@ -7,11 +7,12 @@ import json
 import sys
 from pathlib import Path
 
+from wpilib_agent_tools.commands import TOP_LEVEL_COMMANDS
 from wpilib_agent_tools.lib.sandbox_manager import SandboxError, SandboxManager, format_sandbox_row
 from wpilib_agent_tools.lib.output import emit
 
 
-INTERNAL_COMMANDS = {"sim", "logs", "keys", "query", "math", "graph", "record", "view", "sandbox"}
+INTERNAL_COMMANDS = frozenset(TOP_LEVEL_COMMANDS)
 
 
 def register_subparser(subparsers: argparse._SubParsersAction) -> None:

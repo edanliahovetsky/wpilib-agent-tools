@@ -19,6 +19,13 @@ except ImportError:  # pragma: no cover - depends on optional runtime dependency
 
 Numeric = int | float
 
+SCHEMA_MARKER = "/.schema/struct:"
+RAW_STRUCT_SUFFIX_HINTS: dict[str, str] = {
+    "/fieldRelativeSpeeds": "struct:ChassisSpeeds",
+    "/desiredFieldRelativeSpeeds": "struct:ChassisSpeeds",
+    "/obtainableFieldRelativeSpeeds": "struct:ChassisSpeeds",
+}
+
 
 @dataclass(frozen=True)
 class LogSummary:
@@ -94,6 +101,53 @@ def _record_raw(record: Any) -> bytes:
     return bytes(record.data)
 
 
+def _extract_schema_struct(entry_name: str) -> tuple[str, str] | None:
+    if SCHEMA_MARKER not in entry_name:
+        return None
+    prefix, struct_name = entry_name.split(SCHEMA_MARKER, 1)
+    normalized = struct_name.strip()
+    if not normalized:
+        return None
+    return prefix, f"struct:{normalized}"
+
+
+def _schema_types_for_entry(
+    entry_name: str,
+    schema_types_by_prefix: dict[str, set[str]],
+) -> set[str]:
+    matched: set[str] = set()
+    for prefix, type_names in schema_types_by_prefix.items():
+        if prefix:
+            if entry_name.startswith(f"{prefix}/"):
+                matched.update(type_names)
+            continue
+        matched.update(type_names)
+    return matched
+
+
+def _infer_raw_struct_type(
+    *,
+    entry_name: str,
+    raw: bytes,
+    schema_types_by_prefix: dict[str, set[str]],
+) -> str | None:
+    schema_types = _schema_types_for_entry(entry_name, schema_types_by_prefix)
+
+    for suffix, hint_type in RAW_STRUCT_SUFFIX_HINTS.items():
+        if not entry_name.endswith(suffix):
+            continue
+        if decode_struct_value(raw, hint_type) is not None:
+            return hint_type
+
+    if not schema_types:
+        return None
+
+    decodable = [type_name for type_name in sorted(schema_types) if decode_struct_value(raw, type_name) is not None]
+    if len(decodable) == 1:
+        return decodable[0]
+    return None
+
+
 class LogReader:
     """Read data from `.wpilog` files."""
 
@@ -164,13 +218,16 @@ class LogReader:
         reader = DataLogReader(str(self.path))
         key_names: set[str] = set()
         for record in reader:
+            if record.isStart():
+                start_data = record.getStartData()
+                key_names.add(str(start_data.name))
+                continue
+            if record.isFinish() or record.isSetMetadata() or record.isControl():
+                continue
             timestamp = _record_timestamp_sec(record)
             start_time = timestamp if start_time is None else min(start_time, timestamp)
             end_time = timestamp if end_time is None else max(end_time, timestamp)
             sample_count += 1
-            if record.isStart():
-                start_data = record.getStartData()
-                key_names.add(str(start_data.name))
         key_count = len(key_names)
 
         duration = None
@@ -223,6 +280,7 @@ class LogReader:
 
         reader = DataLogReader(str(self.path))
         entry_by_id: dict[int, tuple[str, str]] = {}
+        schema_types_by_prefix: dict[str, set[str]] = {}
         target_ids: set[int] = set()
         points: list[tuple[float, Any]] = []
 
@@ -233,6 +291,10 @@ class LogReader:
                 entry_name = str(start_data.name)
                 entry_type = str(start_data.type)
                 entry_by_id[entry_id] = (entry_name, entry_type)
+                schema_descriptor = _extract_schema_struct(entry_name)
+                if schema_descriptor is not None:
+                    prefix, struct_type = schema_descriptor
+                    schema_types_by_prefix.setdefault(prefix, set()).add(struct_type)
                 if entry_name == key:
                     target_ids.add(entry_id)
                 continue
@@ -250,8 +312,19 @@ class LogReader:
             if end is not None and timestamp > end:
                 continue
 
-            _, entry_type = entry_by_id.get(entry_id, ("", "unknown"))
+            entry_name, entry_type = entry_by_id.get(entry_id, ("", "unknown"))
             raw = _record_raw(record)
+            if entry_type == "raw":
+                inferred_type = _infer_raw_struct_type(
+                    entry_name=entry_name,
+                    raw=raw,
+                    schema_types_by_prefix=schema_types_by_prefix,
+                )
+                if inferred_type is not None:
+                    decoded = decode_struct_value(raw, inferred_type)
+                    if decoded is not None:
+                        points.append((timestamp, decoded))
+                        continue
             points.append((timestamp, decode_value(raw, entry_type)))
 
         return points

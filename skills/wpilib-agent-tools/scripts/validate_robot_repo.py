@@ -94,6 +94,51 @@ def _replace_method_body(source: str, signature: str, body_lines: list[str]) -> 
     )
 
 
+def _strip_single_comment_prefix(line: str) -> str:
+    stripped = line.lstrip()
+    if stripped.startswith("//"):
+        return stripped[2:]
+    return line
+
+
+def _comment_bline_include_block(settings_text: str) -> tuple[str, str]:
+    lines = settings_text.splitlines(keepends=True)
+    block_start = -1
+    block_end = -1
+    for index, line in enumerate(lines):
+        normalized = _strip_single_comment_prefix(line).strip()
+        if "if (file(" not in normalized:
+            continue
+        if "BLine-Lib" not in normalized or "exists())" not in normalized:
+            continue
+        block_start = index
+        depth = 0
+        for cursor in range(index, len(lines)):
+            scan_line = _strip_single_comment_prefix(lines[cursor])
+            depth += scan_line.count("{")
+            depth -= scan_line.count("}")
+            if depth <= 0 and cursor > index:
+                block_end = cursor
+                break
+        break
+
+    if block_start < 0 or block_end < block_start:
+        return settings_text, "settings.gradle local BLine-Lib block not found; left unchanged"
+
+    block_lines = lines[block_start : block_end + 1]
+    if all((not line.strip()) or line.lstrip().startswith("//") for line in block_lines):
+        return settings_text, "settings.gradle local BLine-Lib include block already commented"
+
+    for cursor in range(block_start, block_end + 1):
+        line = lines[cursor]
+        if not line.strip():
+            continue
+        indent = line[: len(line) - len(line.lstrip())]
+        content = line[len(indent) :]
+        lines[cursor] = f"{indent}// {content}"
+    return "".join(lines), "commented local BLine-Lib include block in settings.gradle"
+
+
 def _patch_2026_profile(sandbox_path: Path, auto_path: str) -> list[str]:
     notes: list[str] = []
 
@@ -157,34 +202,8 @@ def _patch_2026_profile(sandbox_path: Path, auto_path: str) -> list[str]:
     notes.append("added DriverStationSim auto-enable block in Robot.robotInit")
 
     settings_text = settings_gradle.read_text(encoding="utf-8")
-    active_block = (
-        "// Include local BLine-Lib if it exists (for development)\n"
-        "if (file('/Users/edan/FRC/BLine-Lib').exists()) {\n"
-        "    includeBuild('/Users/edan/FRC/BLine-Lib') {\n"
-        "        dependencySubstitution {\n"
-        "            substitute module('com.github.edanliahovetsky:BLine-Lib') using project(':')\n"
-        "        }\n"
-        "    }\n"
-        "}\n"
-    )
-    commented_block = (
-        "// // Include local BLine-Lib if it exists (for development)\n"
-        "// if (file('/Users/edan/FRC/BLine-Lib').exists()) {\n"
-        "//     includeBuild('/Users/edan/FRC/BLine-Lib') {\n"
-        "//         dependencySubstitution {\n"
-        "//             substitute module('com.github.edanliahovetsky:BLine-Lib') using project(':')\n"
-        "//         }\n"
-        "//     }\n"
-        "// }\n"
-    )
-    if active_block in settings_text:
-        settings_text = settings_text.replace(active_block, commented_block, 1)
-        notes.append("commented local BLine-Lib include block in settings.gradle")
-    elif commented_block in settings_text:
-        notes.append("settings.gradle local BLine-Lib include block already commented")
-    else:
-        notes.append("settings.gradle local BLine-Lib block not found; left unchanged")
-
+    settings_text, settings_note = _comment_bline_include_block(settings_text)
+    notes.append(settings_note)
     settings_gradle.write_text(settings_text, encoding="utf-8")
     return notes
 

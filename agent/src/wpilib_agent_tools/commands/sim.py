@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import os
 import re
 import signal
@@ -25,8 +26,17 @@ def _runtime_dir() -> Path:
     return path
 
 
-def _sim_pid_file() -> Path:
-    return _runtime_dir() / "sim.pid"
+def _sim_scope_id() -> str:
+    sandbox_name = os.environ.get("WPILIB_AGENT_TOOLS_SANDBOX_NAME")
+    if sandbox_name:
+        return f"sandbox-{sandbox_name}"
+    cwd_digest = hashlib.sha1(str(Path.cwd().resolve()).encode("utf-8")).hexdigest()[:12]
+    return f"cwd-{cwd_digest}"
+
+
+def _sim_pid_file(scope_id: str) -> Path:
+    safe_scope = re.sub(r"[^a-zA-Z0-9._-]", "_", scope_id)
+    return _runtime_dir() / f"sim-{safe_scope}.pid"
 
 
 def _logs_dir() -> Path:
@@ -97,9 +107,8 @@ def _is_running(pid: int) -> bool:
         return True
 
 
-def _kill_prior_instance() -> dict[str, Any]:
+def _kill_prior_instance(pid_file: Path) -> dict[str, Any]:
     """Kill previous sim instance to enforce single active run."""
-    pid_file = _sim_pid_file()
     if not pid_file.exists():
         return {"killed": False}
     try:
@@ -197,6 +206,8 @@ def _emit(payload: dict[str, Any], as_json: bool, *, compact_json: bool = False)
         f"Completed sim pid={payload['pid']} "
         f"(duration={payload['duration_sec']}s, exit_code={payload['exit_code']})"
     )
+    if payload.get("duration_reached"):
+        print("Duration reached: terminated running sim process at end of bounded run.")
     output_summary = payload.get("output_summary")
     if isinstance(output_summary, dict):
         print(
@@ -215,7 +226,10 @@ def _emit(payload: dict[str, Any], as_json: bool, *, compact_json: bool = False)
             print(f"Full output saved to: {output_summary['artifact']}")
     if payload.get("verbose"):
         print("Verbose mode enabled: full Gradle output was streamed directly.")
-    print(f"Exit code: {payload['exit_code']}")
+    if payload.get("exit_code_raw") != payload.get("exit_code"):
+        print(f"Exit code: {payload['exit_code']} (raw={payload.get('exit_code_raw')})")
+    else:
+        print(f"Exit code: {payload['exit_code']}")
     summary = payload.get("log_summary")
     if summary:
         print(
@@ -355,15 +369,18 @@ def handle_sim(args: argparse.Namespace) -> int:
         print("--record-delay must be >= 0")
         return 2
 
+    sim_scope = _sim_scope_id()
+    sim_pid_file = _sim_pid_file(sim_scope)
     logs_dir = _logs_dir()
     pre_log_state = _snapshot_log_state(logs_dir)
-    kill_result = _kill_prior_instance()
+    kill_result = _kill_prior_instance(sim_pid_file)
     command = ["./gradlew", args.gradle_task]
     output_artifact_path: Path | None = None
     output_file_handle: TextIOWrapper | None = None
     record_process: subprocess.Popen[str] | None = None
     record_output_path: Path | None = None
     record_started = False
+    record_attempted = False
     record_started_at: float | None = None
     record_duration = 0.0
     record_delay = 0.0
@@ -375,11 +392,18 @@ def handle_sim(args: argparse.Namespace) -> int:
         output_artifact_path = reports_dir / f"sim-run-{int(time.time() * 1000)}.log"
         output_file_handle = output_artifact_path.open("w", encoding="utf-8")
         popen_kwargs.update({"stdout": output_file_handle, "stderr": subprocess.STDOUT})
-    process = subprocess.Popen(command, **popen_kwargs)
-    _sim_pid_file().write_text(str(process.pid), encoding="utf-8")
+    try:
+        process = subprocess.Popen(command, **popen_kwargs)
+    except OSError as exc:
+        if output_file_handle is not None:
+            output_file_handle.close()
+        print(f"Failed to launch gradle sim command '{command[0]}': {exc}")
+        return 1
+    sim_pid_file.write_text(str(process.pid), encoding="utf-8")
 
     start = time.monotonic()
     interrupted = False
+    duration_reached = False
     output_excerpt: list[str] = []
     output_summary: dict[str, Any] | None = None
     if args.record:
@@ -390,7 +414,8 @@ def handle_sim(args: argparse.Namespace) -> int:
         while True:
             elapsed = time.monotonic() - start
             process_status = process.poll()
-            if args.record and not record_started and process_status is None and elapsed >= record_delay:
+            if args.record and not record_attempted and process_status is None and elapsed >= record_delay:
+                record_attempted = True
                 record_command = [
                     sys.executable,
                     "-m",
@@ -404,18 +429,22 @@ def handle_sim(args: argparse.Namespace) -> int:
                     str(record_output_path),
                     "--json",
                 ]
-                record_process = subprocess.Popen(
-                    record_command,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True,
-                    preexec_fn=os.setsid,
-                )
-                record_started = True
-                record_started_at = time.monotonic()
+                try:
+                    record_process = subprocess.Popen(
+                        record_command,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        text=True,
+                        preexec_fn=os.setsid,
+                    )
+                    record_started = True
+                    record_started_at = time.monotonic()
+                except OSError as exc:
+                    record_stderr = f"failed_to_start_recorder: {exc}"
             if process_status is not None:
                 break
             if elapsed >= args.duration:
+                duration_reached = True
                 break
             time.sleep(0.1)
     except KeyboardInterrupt:
@@ -460,7 +489,7 @@ def handle_sim(args: argparse.Namespace) -> int:
                 _, record_stderr = record_process.communicate(timeout=0.1)
             except subprocess.TimeoutExpired:
                 record_stderr = ""
-        _sim_pid_file().unlink(missing_ok=True)
+        sim_pid_file.unlink(missing_ok=True)
         if output_file_handle is not None:
             output_file_handle.close()
 
@@ -478,14 +507,21 @@ def handle_sim(args: argparse.Namespace) -> int:
             print(str(exc))
             return 2
 
-    exit_code = process.returncode if process.returncode is not None else 0
+    exit_code_raw = process.returncode if process.returncode is not None else 0
+    exit_code = exit_code_raw
+    if duration_reached and not interrupted and exit_code_raw != 0:
+        # Bounded runs intentionally terminate long-running gradle sim tasks.
+        exit_code = 0
     assertion_keys = args.assert_key or []
 
     payload: dict[str, Any] = {
         "pid": process.pid,
+        "scope": sim_scope,
         "duration_sec": args.duration,
+        "duration_reached": duration_reached,
         "interrupted": interrupted,
         "exit_code": exit_code,
+        "exit_code_raw": exit_code_raw,
         "killed_previous": bool(kill_result.get("killed")),
         "previous_pid": kill_result.get("pid"),
         "verbose": args.verbose,

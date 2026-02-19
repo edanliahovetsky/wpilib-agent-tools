@@ -80,6 +80,8 @@ def _install_runtime_fakes(
     *,
     generated_log: Path | None,
     record_exit_code: int,
+    sim_return_code: int = 0,
+    sim_done_at: float = 2.6,
     record_done_at: float = 100.0,
 ) -> tuple[list[list[str]], list[tuple[int, Any]]]:
     logs_dir = tmp_path / "agent" / "logs"
@@ -88,8 +90,9 @@ def _install_runtime_fakes(
     monkeypatch.setattr(sim, "_logs_dir", lambda: logs_dir)
     monkeypatch.setattr(sim, "_snapshot_log_state", lambda _path: {})
     monkeypatch.setattr(sim, "_resolve_latest_generated_log", lambda _path, _state: generated_log)
-    monkeypatch.setattr(sim, "_kill_prior_instance", lambda: {"killed": False})
-    monkeypatch.setattr(sim, "_sim_pid_file", lambda: tmp_path / "sim.pid")
+    monkeypatch.setattr(sim, "_kill_prior_instance", lambda _pid_file: {"killed": False})
+    monkeypatch.setattr(sim, "_sim_pid_file", lambda _scope: tmp_path / "sim.pid")
+    monkeypatch.setattr(sim, "_sim_scope_id", lambda: "test-scope")
     monkeypatch.setattr(sim.os, "getpgid", lambda pid: pid)
     kill_calls: list[tuple[int, Any]] = []
     monkeypatch.setattr(sim.os, "killpg", lambda pgid, sig: kill_calls.append((pgid, sig)))
@@ -106,7 +109,12 @@ def _install_runtime_fakes(
         commands.append(command)
         pid_counter["next"] += 1
         if command and command[0] == "./gradlew":
-            return _FakeProcess(pid=pid_counter["next"], clock=clock, done_at=2.6, return_code=0)
+            return _FakeProcess(
+                pid=pid_counter["next"],
+                clock=clock,
+                done_at=sim_done_at,
+                return_code=sim_return_code,
+            )
         return _FakeProcess(
             pid=pid_counter["next"],
             clock=clock,
@@ -204,3 +212,26 @@ def test_sim_waits_for_recorder_flush_before_terminate(
     assert payload["recording"]["started"] is True
     # Regression check: recorder should be allowed to exit naturally.
     assert kill_calls == []
+
+
+def test_sim_normalizes_bounded_termination_exit_code(
+    monkeypatch: Any, tmp_path: Path, capsys: Any
+) -> None:
+    generated_log = tmp_path / "agent" / "logs" / "generated.wpilog"
+    _commands, _kill_calls = _install_runtime_fakes(
+        monkeypatch,
+        tmp_path,
+        generated_log=generated_log,
+        record_exit_code=0,
+        sim_return_code=143,
+        sim_done_at=100.0,
+    )
+    args = _sim_args()
+
+    exit_code = sim.handle_sim(args)
+
+    assert exit_code == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["duration_reached"] is True
+    assert payload["exit_code"] == 0
+    assert payload["exit_code_raw"] == 143

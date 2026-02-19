@@ -41,7 +41,7 @@ Default evidence set for path execution validation:
 2. DriverStation state shows enabled/autonomous when that mode is expected.
 3. State telemetry shows a run/finish sequence (for example `FOLLOW_PATH` then `IDLE`).
 
-Do not treat bounded-run termination (`exit_code=143`) as an automatic failure if the telemetry checks pass.
+Do not treat bounded-run termination as an automatic failure if telemetry checks pass (`exit_code_raw` may be `143` while normalized `exit_code` is `0`).
 
 ## Known Timing Tip
 
