@@ -2,6 +2,8 @@
 
 `wpilib-agent-tools` is a sandbox-first CLI for WPILib robot iteration, simulation runs, NetworkTables recording, and post-run log analysis.
 
+This repository also ships a Codex skill bundle at `../skills/wpilib-agent-tools` for agent-facing workflow guidance and reusable validation helpers.
+
 The design goal is safe iteration:
 
 - do work in disposable sandboxes
@@ -41,7 +43,7 @@ The design goal is safe iteration:
 - **Log analysis**: inspect keys, compute metrics, derive series, reconstruct DriverStation state, and more.
 - **Graph generation**: output PNG plots for values, derivatives, and integrals.
 - **NetworkTables recording**: capture live NT4 streams into WPILOG files.
-- **Cursor rule installation**: install packaged `.mdc` templates for sandbox workflow guidance.
+- **Cursor rule installation (compatibility path)**: install packaged `.mdc` templates for Cursor-specific sandbox workflow guidance.
 
 ## Installation
 
@@ -333,6 +335,8 @@ wpilib-agent-tools sandbox patch --name expA --output expA.diff
 ### rules
 
 Install Cursor rule templates for sandbox-oriented workflows.
+
+Use this command only when integrating with Cursor rule files. For Codex usage, prefer the skill bundle in `../skills/wpilib-agent-tools`.
 
 ```bash
 wpilib-agent-tools rules install
