@@ -13,6 +13,7 @@ The format is based on Keep a Changelog and this project follows semantic versio
   - `scripts/install_cursor_rules.sh`
 - Release readiness script `scripts/release_check.sh`.
 - Make targets for install workflows and release checks.
+- Tag-triggered GitHub release workflow at `.github/workflows/release.yml`.
 
 ### Changed
 - Root documentation now includes copy-paste onboarding for local dev, Codex users, and Cursor users.

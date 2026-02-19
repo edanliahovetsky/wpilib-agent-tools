@@ -118,4 +118,13 @@ Before tagging a release:
 make release-check
 ```
 
-And update `CHANGELOG.md`.
+Then push a version tag to publish a GitHub Release with built artifacts:
+
+```bash
+git tag v0.1.1
+git push origin v0.1.1
+```
+
+Tag pushes matching `v*` trigger `.github/workflows/release.yml`, which runs checks, builds `sdist`/`wheel`, and uploads assets to the release.
+
+Update `CHANGELOG.md` before tagging.
