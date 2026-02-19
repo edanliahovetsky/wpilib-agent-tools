@@ -39,6 +39,15 @@ Use copy mode if needed:
 ./scripts/sync_skill.sh --mode copy
 ```
 
+## CLI Resolution Order
+
+Repo automation prefers local code so validation reflects your latest edits:
+
+1. `WPILIB_AGENT_TOOLS_CLI` override (if set)
+2. `./.venv/bin/wpilib-agent-tools`
+3. `wpilib-agent-tools` from `PATH`
+4. `python3 -m wpilib_agent_tools` via repo `agent/src`
+
 ## Generic Robot Validation
 
 Use the reusable validator against any robot repo:
