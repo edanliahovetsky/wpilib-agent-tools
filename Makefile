@@ -2,8 +2,21 @@ SHELL := /bin/bash
 
 REPO_ROOT := $(CURDIR)
 SKILL_DIR := skills/wpilib-agent-tools
+CURSOR_MODE ?= core
+WORKSPACE ?=
 
-.PHONY: bootstrap test skill-validate skill-sync-local smoke validate-2026
+.PHONY: bootstrap \
+	test \
+	skill-validate \
+	skill-sync-local \
+	skill-sync-copy \
+	smoke \
+	validate-2026 \
+	install-all \
+	install-codex \
+	install-cursor \
+	install-cli-pipx \
+	release-check
 
 bootstrap:
 	@./scripts/bootstrap.sh
@@ -25,6 +38,9 @@ skill-validate:
 skill-sync-local:
 	@./scripts/sync_skill.sh --mode symlink
 
+skill-sync-copy:
+	@./scripts/sync_skill.sh --mode copy
+
 smoke:
 	@./scripts/smoke.sh
 
@@ -34,3 +50,22 @@ validate-2026:
 		--branch comp-dev \
 		--profile 2026-robot-code \
 		--keep-sandbox-on-fail
+
+install-all:
+	@./scripts/install_all.sh
+
+install-codex:
+	@./scripts/sync_skill.sh --mode symlink
+
+install-cursor:
+	@if [[ -z "$(WORKSPACE)" ]]; then \
+		echo "Set WORKSPACE=/path/to/robot-repo"; \
+		exit 2; \
+	fi
+	@./scripts/install_cursor_rules.sh --workspace "$(WORKSPACE)" --mode "$(CURSOR_MODE)"
+
+install-cli-pipx:
+	@./scripts/install_cli.sh --mode pipx
+
+release-check:
+	@./scripts/release_check.sh

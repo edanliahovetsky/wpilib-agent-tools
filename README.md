@@ -5,12 +5,91 @@
 1. A shareable Python CLI for WPILib simulation/log workflows (`agent/`)
 2. A Codex skill bundle for agent orchestration (`skills/wpilib-agent-tools/`)
 
-## Quick Start
+## Quick Start (Local Contributor)
 
 ```bash
-make bootstrap
-make skill-sync-local
-make smoke
+git clone https://github.com/edanliahovetsky/wpilib-agent-tools.git
+cd wpilib-agent-tools
+./scripts/install_all.sh
+```
+
+That installs the local CLI (`.venv`), syncs the Codex skill, validates skill structure, and runs smoke checks.
+
+## One-Command Installer
+
+```bash
+./scripts/install_all.sh --help
+```
+
+Useful examples:
+
+```bash
+# Local dev setup (default)
+./scripts/install_all.sh
+
+# Global CLI via pipx + Codex skill copy mode
+./scripts/install_all.sh --cli-mode pipx --skill-mode copy
+
+# Also install Cursor rules into a robot repo
+./scripts/install_all.sh --cursor-workspace ~/FRC/2026-Robot-Code --cursor-mode core
+```
+
+## Codex Setup
+
+Default setup:
+
+```bash
+./scripts/sync_skill.sh --mode symlink
+```
+
+This creates:
+
+- `~/.codex/skills/wpilib-agent-tools` -> `skills/wpilib-agent-tools`
+
+Use copy mode for snapshot installs:
+
+```bash
+./scripts/sync_skill.sh --mode copy
+```
+
+## Cursor Setup
+
+Install rule templates into any workspace:
+
+```bash
+./scripts/install_cursor_rules.sh --workspace /path/to/robot-repo --mode core
+```
+
+Make target equivalent:
+
+```bash
+make install-cursor WORKSPACE=/path/to/robot-repo CURSOR_MODE=core
+```
+
+## Share With Other Users
+
+### Option A: Contributor Flow (editable local repo)
+
+```bash
+git clone https://github.com/edanliahovetsky/wpilib-agent-tools.git
+cd wpilib-agent-tools
+./scripts/install_all.sh
+```
+
+### Option B: Consumer Flow (pipx CLI + skill files)
+
+Install CLI from GitHub (pre-PyPI):
+
+```bash
+pipx install "git+https://github.com/edanliahovetsky/wpilib-agent-tools.git#subdirectory=agent"
+```
+
+Then install skill files:
+
+```bash
+git clone https://github.com/edanliahovetsky/wpilib-agent-tools.git
+cd wpilib-agent-tools
+./scripts/sync_skill.sh --mode copy
 ```
 
 ## Common Commands
@@ -18,51 +97,25 @@ make smoke
 ```bash
 make test
 make skill-validate
+make smoke
 make validate-2026
-```
-
-## Setup Notes
-
-- Use `pipx` for globally installed CLI usage.
-- Use `pip` in a virtual environment for development and testing in this repo.
-
-## Codex Skill Sync
-
-`make skill-sync-local` installs a symlink at:
-
-- `$CODEX_HOME/skills/wpilib-agent-tools`
-- default `CODEX_HOME` is `~/.codex`
-
-Use copy mode if needed:
-
-```bash
-./scripts/sync_skill.sh --mode copy
 ```
 
 ## CLI Resolution Order
 
-Repo automation prefers local code so validation reflects your latest edits:
+Repo automation prefers local code so validation reflects latest edits:
 
 1. `WPILIB_AGENT_TOOLS_CLI` override (if set)
 2. `./.venv/bin/wpilib-agent-tools`
 3. `wpilib-agent-tools` from `PATH`
 4. `python3 -m wpilib_agent_tools` via repo `agent/src`
 
-## Generic Robot Validation
+## Release Hygiene
 
-Use the reusable validator against any robot repo:
-
-```bash
-./scripts/validate_robot_repo.sh --repo /path/to/robot-repo --profile generic
-```
-
-Profile example:
+Before tagging a release:
 
 ```bash
-./scripts/validate_robot_repo.sh \
-  --repo ~/FRC/2026-Robot-Code \
-  --branch comp-dev \
-  --profile 2026-robot-code
+make release-check
 ```
 
-The validator reports pass/fail using log evidence (DS state, state transitions, log generation), not process exit code alone.
+And update `CHANGELOG.md`.
