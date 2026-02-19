@@ -3,15 +3,10 @@
 from __future__ import annotations
 
 import argparse
+import importlib
 import json
-import os
 from pathlib import Path
 from typing import Any
-
-import matplotlib
-
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 
 from wpilib_agent_tools.lib.analysis import calculate_derivative, calculate_integral
 from wpilib_agent_tools.lib.log_reader import LogReader, ensure_log_file
@@ -67,6 +62,18 @@ def _expand_keys(keys: list[str]) -> list[str]:
     return expanded
 
 
+def _load_pyplot() -> Any:
+    """Load matplotlib lazily so non-graph commands avoid GUI/font side effects."""
+    try:
+        matplotlib = importlib.import_module("matplotlib")
+        matplotlib.use("Agg")
+        return importlib.import_module("matplotlib.pyplot")
+    except Exception as exc:
+        raise RuntimeError(
+            "matplotlib is required for graph command. Install matplotlib to enable plotting."
+        ) from exc
+
+
 def handle_graph(args: argparse.Namespace) -> int:
     try:
         file_path = ensure_log_file(args.file)
@@ -120,6 +127,12 @@ def handle_graph(args: argparse.Namespace) -> int:
                 print("Skipped non-numeric samples:")
                 for key, count in skipped_non_numeric_by_key.items():
                     print(f"  {key}: {count}")
+        return 1
+
+    try:
+        plt = _load_pyplot()
+    except RuntimeError as exc:
+        print(str(exc))
         return 1
 
     plt.figure(figsize=(12, 6))
