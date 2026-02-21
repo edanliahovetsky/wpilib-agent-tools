@@ -12,7 +12,7 @@ Practical baseline:
 Why:
 
 - Gives startup headroom for simulator and NT4 server.
-- Still captures early autonomous transitions.
+- Still captures early behavior transitions.
 
 Practical startup windows:
 
@@ -45,7 +45,7 @@ The same approach applies to non-path behavior tests (subsystem state, command t
 Use telemetry as source of truth:
 
 1. DS mode values
-2. autonomous state sequence
+2. behavior state sequence
 3. log generation success
 
 Use process exit as secondary context only.
