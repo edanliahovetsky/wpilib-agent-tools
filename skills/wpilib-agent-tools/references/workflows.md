@@ -16,6 +16,28 @@ Tips:
 - Prefer `--json` for machine parsing.
 - Prefer `--summary`, `--limit`, and `--max-lines` for bounded output.
 
+## Direct Behavior Validation (No Code Edit)
+
+Use this when the target repo already contains the behavior under test.
+
+```bash
+wpilib-agent-tools sim --duration 20 --record-delay 3 --json
+wpilib-agent-tools query --mode ds --json
+wpilib-agent-tools query --mode stats --key "<behavior/key>" --json
+wpilib-agent-tools graph --key "<behavior/key>" --output behavior.png --json
+```
+
+For assertion-led checks:
+
+```bash
+wpilib-agent-tools sim \
+  --duration 20 \
+  --record-delay 3 \
+  --assert-key "<boolean_or_state_key>" \
+  --assert-range "<numeric_key>" <min> <max> \
+  --json
+```
+
 ## Sandbox Iteration Workflow
 
 Use this path for robot-code iteration plus sim validation.
@@ -33,6 +55,7 @@ Rules:
 - Keep generated artifacts in sandbox unless asked otherwise.
 - Export patch only after collecting evidence.
 - Keep all behavior checks tied to log evidence, not process exit alone.
+- If startup timing drops early behavior from logs, tune `--record-delay` and duration, then consider adding startup wait/gating in robot command flow.
 
 ## Reusable Validation Script Workflow
 
@@ -40,6 +63,17 @@ Use `scripts/validate_robot_repo.sh` for repeatable validation and a single repo
 
 ```bash
 scripts/validate_robot_repo.sh --repo /path/to/repo --profile generic
+```
+
+Generic profile with explicit checks:
+
+```bash
+scripts/validate_robot_repo.sh \
+  --repo /path/to/repo \
+  --profile generic \
+  --check-ds \
+  --state-key "<behavior/key>" \
+  --expected-states "STATE_A,STATE_B"
 ```
 
 For repo-specific defaults:
