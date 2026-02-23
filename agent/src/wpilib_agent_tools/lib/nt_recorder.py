@@ -89,7 +89,18 @@ def _extract_value_payload(value_obj: Any) -> Any:
 
 
 def _normalize_type(type_str: str | None, value: Any | None = None) -> str:
-    normalized = (type_str or "").strip().lower()
+    text = (type_str or "").strip()
+    normalized = text.lower()
+
+    if normalized.startswith("struct:"):
+        type_name = text.split(":", 1)[1].strip()
+        if type_name:
+            return f"struct:{type_name}"
+    if normalized.startswith("proto:"):
+        type_name = text.split(":", 1)[1].strip()
+        if type_name:
+            return f"proto:{type_name}"
+
     aliases = {
         "bool": "boolean",
         "bool[]": "boolean[]",
@@ -347,6 +358,9 @@ class NTRecorder:
         self.poll_interval_sec = poll_interval_sec
 
     def _match_key(self, key: str) -> bool:
+        # Preserve struct/proto schema definitions even when key filters are set.
+        if "/.schema/" in key:
+            return True
         if not self.key_prefixes:
             return True
         lowered = key.lower()

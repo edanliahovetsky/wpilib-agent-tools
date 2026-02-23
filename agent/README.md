@@ -220,6 +220,7 @@ wpilib-agent-tools record --address 10.0.0.2:5810 --duration 10
 
 - `--keys` accepts repeatable key-prefix filters
 - `--address` accepts `host`, `host:port`, or bracketed IPv6 `"[addr]:port"`
+- Struct/proto topic type strings are preserved in WPILOG output for proper AdvantageScope struct decoding
 - If `--output` is relative, it is written under `agent/logs/`
 - Fails with a clear error if NT4 server is unreachable within a short timeout
 
