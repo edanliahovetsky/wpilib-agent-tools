@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import socket
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -230,6 +231,92 @@ def _append_to_log(
     return True
 
 
+def _parse_address(address: str) -> tuple[str, int | None]:
+    """Parse server address as host, optionally with :port."""
+    text = address.strip()
+    if not text:
+        raise RuntimeError("NT4 server address cannot be empty.")
+
+    if text.startswith("["):
+        bracket_end = text.find("]")
+        if bracket_end == -1:
+            raise RuntimeError(f"Invalid NT4 server address '{address}': missing closing ']'.")
+        host = text[1:bracket_end].strip()
+        remainder = text[bracket_end + 1 :].strip()
+        if not host:
+            raise RuntimeError(f"Invalid NT4 server address '{address}': missing host.")
+        if not remainder:
+            return host, None
+        if not remainder.startswith(":"):
+            raise RuntimeError(
+                f"Invalid NT4 server address '{address}': expected ':<port>' after ']'."
+            )
+        port_text = remainder[1:].strip()
+        if not port_text.isdigit():
+            raise RuntimeError(f"Invalid NT4 server address '{address}': invalid port '{port_text}'.")
+        port = int(port_text)
+        if port < 1 or port > 65535:
+            raise RuntimeError(f"Invalid NT4 server address '{address}': port must be 1-65535.")
+        return host, port
+
+    if ":" in text and text.count(":") == 1:
+        host, port_text = text.rsplit(":", 1)
+        host = host.strip()
+        port_text = port_text.strip()
+        if not host:
+            raise RuntimeError(f"Invalid NT4 server address '{address}': missing host.")
+        if port_text:
+            if not port_text.isdigit():
+                raise RuntimeError(f"Invalid NT4 server address '{address}': invalid port '{port_text}'.")
+            port = int(port_text)
+            if port < 1 or port > 65535:
+                raise RuntimeError(f"Invalid NT4 server address '{address}': port must be 1-65535.")
+            return host, port
+        raise RuntimeError(f"Invalid NT4 server address '{address}': missing port after ':'.")
+
+    return text, None
+
+
+def _resolve_host_ips(host: str) -> set[str]:
+    """Resolve host to IP strings for connection-target matching."""
+    resolved: set[str] = set()
+    try:
+        infos = socket.getaddrinfo(host, None, family=socket.AF_UNSPEC, type=socket.SOCK_STREAM)
+    except Exception:
+        return resolved
+    for _family, _socktype, _proto, _canonname, sockaddr in infos:
+        if not sockaddr:
+            continue
+        try:
+            resolved.add(str(sockaddr[0]))
+        except Exception:
+            continue
+    return resolved
+
+
+def _connection_matches_target(
+    connection: Any,
+    *,
+    server_host: str,
+    server_port: int | None,
+    resolved_host_ips: set[str],
+) -> bool:
+    remote_ip = str(getattr(connection, "remote_ip", "") or "").strip()
+    remote_port_raw = getattr(connection, "remote_port", None)
+    try:
+        remote_port = int(remote_port_raw) if remote_port_raw is not None else 0
+    except Exception:
+        remote_port = 0
+
+    if server_port is not None and remote_port != server_port:
+        return False
+    if not remote_ip:
+        return False
+    if remote_ip in resolved_host_ips:
+        return True
+    return remote_ip == server_host
+
+
 @dataclass(frozen=True)
 class RecordingResult:
     """Return value from a completed recording."""
@@ -268,19 +355,40 @@ class NTRecorder:
                 return True
         return False
 
-    def _wait_for_connection(self, inst: Any) -> None:
+    def _wait_for_connection(
+        self,
+        inst: Any,
+        *,
+        server_host: str,
+        server_port: int | None,
+    ) -> None:
         # Give NT4 a short grace period to establish transport before sampling.
         timeout = max(0.5, min(5.0, self.duration_sec * 0.5))
         deadline = time.monotonic() + timeout
+        resolved_host_ips = _resolve_host_ips(server_host)
+
         while time.monotonic() < deadline:
             try:
-                if inst.isConnected():
+                connections = list(inst.getConnections())
+                if any(
+                    _connection_matches_target(
+                        connection,
+                        server_host=server_host,
+                        server_port=server_port,
+                        resolved_host_ips=resolved_host_ips,
+                    )
+                    for connection in connections
+                ):
+                    return
+                if not resolved_host_ips and server_port is None and inst.isConnected():
                     return
             except Exception:
                 pass
             time.sleep(0.05)
+
+        endpoint = server_host if server_port is None else f"{server_host}:{server_port}"
         raise RuntimeError(
-            f"Unable to connect to NT4 server at '{self.address}' within {timeout:.1f}s."
+            f"Unable to connect to NT4 server at '{endpoint}' within {timeout:.1f}s."
         )
 
     def _record_with_listener(
@@ -472,8 +580,12 @@ class NTRecorder:
         inst.stopServer()
         inst.stopClient()
         inst.startClient4("wpilib-agent-tools-recorder")
-        inst.setServer(self.address)
-        self._wait_for_connection(inst)
+        server_host, server_port = _parse_address(self.address)
+        if server_port is None:
+            inst.setServer(server_host)
+        else:
+            inst.setServer(server_host, server_port)
+        self._wait_for_connection(inst, server_host=server_host, server_port=server_port)
 
         start_mono = time.monotonic()
         topic_types: dict[str, str] = {}

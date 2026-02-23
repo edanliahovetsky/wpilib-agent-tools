@@ -215,9 +215,11 @@ Record live NT4 topics into WPILOG.
 ```bash
 wpilib-agent-tools record --address localhost --duration 10
 wpilib-agent-tools record --address 10.0.0.2 --duration 15 --keys /Shooter --keys /Drive --json
+wpilib-agent-tools record --address 10.0.0.2:5810 --duration 10
 ```
 
 - `--keys` accepts repeatable key-prefix filters
+- `--address` accepts `host`, `host:port`, or bracketed IPv6 `"[addr]:port"`
 - If `--output` is relative, it is written under `agent/logs/`
 - Fails with a clear error if NT4 server is unreachable within a short timeout
 
@@ -371,12 +373,18 @@ wpilib-agent-tools rules install --json
 
 When reading `.wpilog`, `query --mode values` decodes several `struct:*` payloads to human-readable dictionaries:
 
-- `Rotation2d`
-- `Translation2d`
-- `Pose2d`
-- `ChassisSpeeds`
-- `SwerveModuleState`
-- `SwerveModuleState[]`
+- Geometry:
+  - `Rotation2d`, `Translation2d`, `Pose2d`, `Transform2d`, `Twist2d`
+  - `Quaternion`, `Rotation3d`, `Translation3d`, `Pose3d`, `Transform3d`, `Twist3d`
+  - `Rectangle2d`, `Ellipse2d`
+- Kinematics:
+  - `ChassisSpeeds`
+  - `SwerveModuleState`, `SwerveModulePosition`
+  - `DifferentialDriveWheelSpeeds`, `DifferentialDriveWheelPositions`, `DifferentialDriveKinematics`
+  - `MecanumDriveWheelSpeeds`, `MecanumDriveWheelPositions`, `MecanumDriveKinematics`
+  - `SwerveDriveKinematics__N` (N-module struct type emitted by WPILib)
+- Arrays:
+  - Any fixed-size supported struct can be decoded as `struct:<Type>[]` (for example `Pose2d[]`, `SwerveModuleState[]`)
 
 Unknown struct types are returned with fallback metadata (`wpilog_type`, `raw_size_bytes`, `raw_hex`) so samples remain inspectable.
 

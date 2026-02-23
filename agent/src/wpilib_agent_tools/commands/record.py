@@ -10,7 +10,7 @@ from wpilib_agent_tools.lib.nt_recorder import NTRecorder
 
 def register_subparser(subparsers: argparse._SubParsersAction) -> None:
     parser = subparsers.add_parser("record", help="Record live NT4 data to WPILOG.")
-    parser.add_argument("--address", default="localhost", help="NT4 server address.")
+    parser.add_argument("--address", default="localhost", help="NT4 server address (host or host:port).")
     parser.add_argument("--duration", type=float, required=True, help="Duration in seconds.")
     parser.add_argument(
         "--keys",
