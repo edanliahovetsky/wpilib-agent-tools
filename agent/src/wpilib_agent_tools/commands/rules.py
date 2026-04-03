@@ -6,6 +6,7 @@ import argparse
 import json
 from pathlib import Path
 
+from wpilib_agent_tools.integrations import cursor_rules_dir
 
 CORE_TEMPLATE_FILE = "core_always_on.mdc"
 TOKEN_EFFICIENT_TEMPLATE_FILE = "token_efficient_always_on.mdc"
@@ -22,7 +23,7 @@ OUTPUT_FILE_NAMES: dict[str, str] = {
 
 
 def _template_dir() -> Path:
-    return Path(__file__).resolve().parent.parent / "rule_templates"
+    return cursor_rules_dir()
 
 
 def _read_template(template_name: str) -> str:

@@ -148,9 +148,9 @@ fi
 if [[ "${SKIP_CHECKS}" -eq 0 ]]; then
   echo "[3/4] Running validation checks"
   if [[ -x "${REPO_ROOT}/.venv/bin/python" ]]; then
-    "${REPO_ROOT}/.venv/bin/python" "${REPO_ROOT}/scripts/validate_skill.py" "${REPO_ROOT}/skills/wpilib-agent-tools"
+    "${REPO_ROOT}/.venv/bin/python" "${REPO_ROOT}/scripts/validate_skill.py" "${REPO_ROOT}/agent/src/wpilib_agent_tools/integrations/codex/skill_bundle"
   else
-    python3 "${REPO_ROOT}/scripts/validate_skill.py" "${REPO_ROOT}/skills/wpilib-agent-tools"
+    python3 "${REPO_ROOT}/scripts/validate_skill.py" "${REPO_ROOT}/agent/src/wpilib_agent_tools/integrations/codex/skill_bundle"
   fi
   "${REPO_ROOT}/scripts/smoke.sh"
 else

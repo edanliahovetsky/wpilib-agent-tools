@@ -70,7 +70,7 @@ Codex support is provided through the shared workspace installer. It manages a C
 ./scripts/install_harness_support.sh --workspace /path/to/robot-repo --harnesses codex
 ```
 
-The repo still ships a Codex skill bundle in `skills/wpilib-agent-tools/`, but the new primary distribution story is the shared installer rather than Codex-only setup.
+The repo still ships a Codex skill bundle, but it now lives alongside the other integration assets in the package-centered `integrations/` tree. The primary distribution story is the shared installer rather than a Codex-only setup path.
 
 ### Claude Code
 

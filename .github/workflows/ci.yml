@@ -28,7 +28,7 @@ jobs:
 
       - name: Validate skill structure
         run: |
-          python scripts/validate_skill.py skills/wpilib-agent-tools
+          python scripts/validate_skill.py agent/src/wpilib_agent_tools/integrations/codex/skill_bundle
 
       - name: Smoke checks
         run: |

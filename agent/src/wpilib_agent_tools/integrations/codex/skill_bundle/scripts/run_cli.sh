@@ -2,7 +2,22 @@
 set -euo pipefail
 
 CLI_BIN="${WPILIB_AGENT_TOOLS_CLI:-wpilib-agent-tools}"
-CANDIDATE_REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+
+find_repo_root() {
+  local start_dir current
+  start_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  current="${start_dir}"
+
+  while [[ "${current}" != "/" ]]; do
+    if [[ -d "${current}/agent/src" ]]; then
+      printf '%s\n' "${current}"
+      return 0
+    fi
+    current="$(cd "${current}/.." && pwd)"
+  done
+
+  return 1
+}
 
 # Prefer explicitly provided source repo when available.
 if [[ -n "${WPILIB_AGENT_TOOLS_REPO:-}" ]]; then
@@ -13,7 +28,7 @@ if [[ -n "${WPILIB_AGENT_TOOLS_REPO:-}" ]]; then
 fi
 
 # If this skill is symlinked inside the source repo, use that checkout.
-if [[ -d "${CANDIDATE_REPO}/agent/src" ]]; then
+if CANDIDATE_REPO="$(find_repo_root)"; then
   export PYTHONPATH="${CANDIDATE_REPO}/agent/src:${PYTHONPATH:-}"
   exec python3 -m wpilib_agent_tools "$@"
 fi

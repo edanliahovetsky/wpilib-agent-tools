@@ -30,5 +30,5 @@ The format is based on Keep a Changelog and this project follows semantic versio
 
 ### Added
 - Initial `wpilib-agent-tools` CLI with sandbox-first sim/log/query workflows.
-- Codex skill bundle at `skills/wpilib-agent-tools`.
+- Codex skill bundle for agent-facing workflow integration.
 - Validation and smoke tooling for local workflow verification.

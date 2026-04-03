@@ -6,7 +6,7 @@ This file is the **CLI/package manual**.
 
 For the project overview, supported harnesses, shared installer story, and release/share guidance, start with the root [`README.md`](../README.md).
 
-This repository also ships workspace support for Codex, Claude Code, and Cursor, plus a Codex skill bundle at `../skills/wpilib-agent-tools` for agent-facing workflow guidance and reusable validation helpers.
+This repository also ships workspace support for Codex, Claude Code, and Cursor, plus a package-centered Codex skill bundle for agent-facing workflow guidance and reusable validation helpers.
 
 The design goal is safe iteration:
 

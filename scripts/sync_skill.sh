@@ -27,7 +27,7 @@ if [[ "${MODE}" != "symlink" && "${MODE}" != "copy" ]]; then
 fi
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SOURCE_DIR="${REPO_ROOT}/skills/wpilib-agent-tools"
+SOURCE_DIR="${REPO_ROOT}/agent/src/wpilib_agent_tools/integrations/codex/skill_bundle"
 TARGET_DIR="${CODEX_HOME}/skills/wpilib-agent-tools"
 
 if [[ ! -d "${SOURCE_DIR}" ]]; then

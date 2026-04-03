@@ -7,6 +7,11 @@ import json
 from pathlib import Path
 
 from wpilib_agent_tools.commands import rules
+from wpilib_agent_tools.integrations import (
+    claude_command_template,
+    claude_workspace_block,
+    codex_workspace_block,
+)
 
 RUNNER_DIR_NAME = ".wpilib-agent-tools"
 RUNNER_FILE_NAME = "run_cli.sh"
@@ -17,12 +22,15 @@ CLAUDE_BLOCK_END = "<!-- wpilib-agent-tools:claude:end -->"
 CLAUDE_COMMAND_FILE = "wpilib-agent-tools-validate.md"
 
 
-def _template_dir() -> Path:
-    return Path(__file__).resolve().parent.parent / "harness_templates"
-
-
 def _read_template(template_name: str) -> str:
-    path = _template_dir() / template_name
+    if template_name == "codex":
+        path = codex_workspace_block()
+    elif template_name == "claude":
+        path = claude_workspace_block()
+    elif template_name == "claude-command":
+        path = claude_command_template()
+    else:
+        raise FileNotFoundError(f"Unknown template: {template_name}")
     if not path.exists():
         raise FileNotFoundError(f"Template not found: {path}")
     return path.read_text(encoding="utf-8")
@@ -139,7 +147,7 @@ def _install_codex(
     installed: list[str],
     overwritten: list[str],
 ) -> None:
-    body = _replace_placeholder(_read_template("codex_agents_block.md"), runner_path)
+    body = _replace_placeholder(_read_template("codex"), runner_path)
     agents_path = workspace / "AGENTS.md"
     _record_write(agents_path, installed=installed, overwritten=overwritten)
     _merge_managed_block(
@@ -161,7 +169,7 @@ def _install_claude(
     skipped: list[dict[str, str]],
 ) -> None:
     claude_path = workspace / "CLAUDE.md"
-    body = _replace_placeholder(_read_template("claude_project_block.md"), runner_path)
+    body = _replace_placeholder(_read_template("claude"), runner_path)
     _record_write(claude_path, installed=installed, overwritten=overwritten)
     _merge_managed_block(
         claude_path,
@@ -178,7 +186,7 @@ def _install_claude(
     if command_path.exists() and not force:
         skipped.append({"path": command_str, "reason": "exists (use --force to overwrite)"})
     else:
-        content = _replace_placeholder(_read_template("claude_command_validate.md"), runner_path)
+        content = _replace_placeholder(_read_template("claude-command"), runner_path)
         if command_path.exists() and force:
             overwritten.append(command_str)
         else:

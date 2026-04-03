@@ -1,7 +1,7 @@
 SHELL := /bin/bash
 
 REPO_ROOT := $(CURDIR)
-SKILL_DIR := skills/wpilib-agent-tools
+SKILL_DIR := agent/src/wpilib_agent_tools/integrations/codex/skill_bundle
 CURSOR_MODE ?= core
 WORKSPACE ?=
 

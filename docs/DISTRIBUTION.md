@@ -22,6 +22,12 @@ The supported harnesses for this release are:
 
 The parity goal is **one shared installer path** that supports all three cleanly.
 
+The canonical source-of-truth integration assets now live in the package-centered tree:
+
+- `agent/src/wpilib_agent_tools/integrations/codex/`
+- `agent/src/wpilib_agent_tools/integrations/claude/`
+- `agent/src/wpilib_agent_tools/integrations/cursor/`
+
 ## Why not center everything around `pipx` or PyPI?
 
 Because this project is really two things:
