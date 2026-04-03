@@ -1,4 +1,5 @@
 .DS_Store
+.omx/
 
 # Python
 __pycache__/
@@ -21,3 +22,11 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+.venv/
+.pytest_cache/
+
+# Repo/runtime artifacts
+agent/.venv/
+agent/.pytest_cache/
+agent/reports/
+*.log

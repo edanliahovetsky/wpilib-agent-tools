@@ -1,74 +1,37 @@
 # wpilib-agent-tools
 
-`wpilib-agent-tools` packages two artifacts in one repo:
+`wpilib-agent-tools` is a repo-first toolkit for FRC teams using agentic coding workflows around WPILib simulation, NT4 recording, and WPILOG analysis.
 
-1. A shareable Python CLI for WPILib simulation/log workflows (`agent/`)
-2. A Codex skill bundle for agent orchestration (`skills/wpilib-agent-tools/`)
+This repo currently ships two pieces together:
 
-## Quick Start (Local Contributor)
+1. a Python CLI for simulation/log workflows in [`agent/`](agent/)
+2. a Codex skill bundle for agent orchestration in [`skills/wpilib-agent-tools/`](skills/wpilib-agent-tools/)
 
-```bash
-git clone https://github.com/edanliahovetsky/wpilib-agent-tools.git
-cd wpilib-agent-tools
-./scripts/install_all.sh
-```
+## Why this exists
 
-That installs the local CLI (`.venv`), syncs the Codex skill, validates skill structure, and runs smoke checks.
+This started as a side project, but it has already been genuinely useful — especially for closed-loop sim validation and log-driven iteration.
 
-## One-Command Installer
+It is worth trying if you are already experimenting with agentic coding in FRC and want:
 
-```bash
-./scripts/install_all.sh --help
-```
+- sandbox-first robot-code iteration
+- bounded sim runs
+- NT4 recording to WPILOG
+- quick log/query/graph tooling
+- reusable workflow instructions for coding agents
 
-Useful examples:
+## Current status
 
-```bash
-# Local dev setup (default)
-./scripts/install_all.sh
+This is **useful and real**, but still **experimental**.
 
-# Global CLI via pipx + Codex skill copy mode
-./scripts/install_all.sh --cli-mode pipx --skill-mode copy
+- not fully polished
+- not universally plug-and-play across every coding agent
+- **not MCP-based**
+- best results tend to come from stronger lead/orchestrator models and higher-thinking modes
+- token usage and subagent usage still deserve care
 
-# Also install Cursor rules into a robot repo
-./scripts/install_all.sh --cursor-workspace ~/FRC/2026-Robot-Code --cursor-mode core
-```
+## Recommended install path for this first release
 
-## Codex Setup
-
-Default setup:
-
-```bash
-./scripts/sync_skill.sh --mode symlink
-```
-
-This creates:
-
-- `~/.codex/skills/wpilib-agent-tools` -> `skills/wpilib-agent-tools`
-
-Use copy mode for snapshot installs:
-
-```bash
-./scripts/sync_skill.sh --mode copy
-```
-
-## Cursor Setup
-
-Install rule templates into any workspace:
-
-```bash
-./scripts/install_cursor_rules.sh --workspace /path/to/robot-repo --mode core
-```
-
-Make target equivalent:
-
-```bash
-make install-cursor WORKSPACE=/path/to/robot-repo CURSOR_MODE=core
-```
-
-## Share With Other Users
-
-### Option A: Contributor Flow (editable local repo)
+For now, the canonical setup path is:
 
 ```bash
 git clone https://github.com/edanliahovetsky/wpilib-agent-tools.git
@@ -76,32 +39,71 @@ cd wpilib-agent-tools
 ./scripts/install_all.sh
 ```
 
-### Option B: Consumer Flow (pipx CLI + skill files)
+That path keeps the code, scripts, and install instructions in one place.
 
-Install CLI from GitHub (pre-PyPI):
+What it does:
+
+- bootstraps the local CLI into `./.venv`
+- syncs the Codex skill bundle
+- validates the skill structure
+- runs smoke checks
+- optionally installs Cursor rules if you pass a workspace
+
+For deeper setup details, see:
+
+- [INSTALL.md](INSTALL.md) — canonical onboarding/install doc
+- [docs/DISTRIBUTION.md](docs/DISTRIBUTION.md) — why the first release is repo-first
+- [agent/README.md](agent/README.md) — full CLI reference
+
+## Alternate install paths
+
+These are supported, but secondary to the repo-first path above.
+
+### CLI only via `pipx` from GitHub
 
 ```bash
 pipx install "git+https://github.com/edanliahovetsky/wpilib-agent-tools.git#subdirectory=agent"
 ```
 
-Then install skill files:
+This is convenient if you mainly want the CLI. It does **not** fully solve the skill/setup side of the project by itself.
+
+### Manual Codex skill sync
 
 ```bash
-git clone https://github.com/edanliahovetsky/wpilib-agent-tools.git
-cd wpilib-agent-tools
-./scripts/sync_skill.sh --mode copy
+./scripts/sync_skill.sh --mode symlink
 ```
 
-## Common Commands
+Use `--mode copy` if you want a snapshot install instead of a symlink.
+
+### Cursor rule install
+
+```bash
+./scripts/install_cursor_rules.sh --workspace /path/to/robot-repo --mode core
+```
+
+## Distribution strategy for this release
+
+For the first public share, GitHub is the source of truth for:
+
+- code
+- install instructions
+- supported setup flow
+- tagged releases
+- issue tracking
+
+That means the repo + scripts + docs are the primary distribution model for now. `pipx` is offered as a convenience path for the CLI, while PyPI and more polished multi-agent packaging are intentionally deferred until there is real usage feedback.
+
+## Common commands
 
 ```bash
 make test
 make skill-validate
 make smoke
 make validate-2026
+make release-check
 ```
 
-## CLI Resolution Order
+## CLI resolution order
 
 Repo automation prefers local code so validation reflects latest edits:
 
@@ -110,7 +112,7 @@ Repo automation prefers local code so validation reflects latest edits:
 3. `wpilib-agent-tools` from `PATH`
 4. `python3 -m wpilib_agent_tools` via repo `agent/src`
 
-## Release Hygiene
+## Release hygiene
 
 Before tagging a release:
 
@@ -128,3 +130,7 @@ git push origin v0.1.1
 Tag pushes matching `v*` trigger `.github/workflows/release.yml`, which runs checks, builds `sdist`/`wheel`, and uploads assets to the release.
 
 Update `CHANGELOG.md` before tagging.
+
+## Draft share copy
+
+A working Chief Delphi draft lives at [docs/CHIEF_DELPHI_POST.md](docs/CHIEF_DELPHI_POST.md).

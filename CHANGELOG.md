@@ -14,9 +14,14 @@ The format is based on Keep a Changelog and this project follows semantic versio
 - Release readiness script `scripts/release_check.sh`.
 - Make targets for install workflows and release checks.
 - Tag-triggered GitHub release workflow at `.github/workflows/release.yml`.
+- Top-level `LICENSE` for public repository sharing.
+- Canonical install guide at `INSTALL.md`.
+- Distribution notes at `docs/DISTRIBUTION.md`.
+- Chief Delphi draft post at `docs/CHIEF_DELPHI_POST.md`.
 
 ### Changed
 - Root documentation now includes copy-paste onboarding for local dev, Codex users, and Cursor users.
+- Root README now frames the project as a repo-first public release with one recommended install path and clearer maturity/distribution guidance.
 
 ## [0.1.0] - 2026-02-19
 
