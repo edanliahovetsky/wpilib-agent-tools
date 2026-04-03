@@ -70,8 +70,44 @@ I would love to hear it.
 
 GitHub repo: **[add repo link here before posting]**
 
+## Shorter version
+
+Hey all,
+
+I wanted to share a side project I have been working on: **`wpilib-agent-tools`**.
+
+It is basically a repo-first toolkit for agentic WPILib workflows — especially around **closed-loop sim validation**, bounded sim runs, NT4 recording, and WPILOG analysis. It is not a polished product, but it has already been genuinely useful for me and feels worth sharing in case it is useful to other teams too.
+
+The repo currently bundles:
+
+1. a Python CLI for sim / NT4 / WPILOG workflows
+2. a Codex-oriented skill/workflow bundle for agentic coding
+
+This is **not MCP-based**. That was mostly a practicality decision for this project: I wanted the first version to stay simpler and more repo-first rather than spending more time building around MCP up front. I still think MCP is a really promising direction, and I also want to acknowledge some of the FRC projects exploring that path more directly:
+
+- https://www.chiefdelphi.com/t/wip-model-context-protocol-for-frc-wpilog-and-nt4/517780
+- https://www.chiefdelphi.com/t/advantagescope-and-elastic-dashboard-mcp-servers/515906
+- https://www.chiefdelphi.com/t/first-agentic-csa-frc-ai-coding-enhancer-v2/508968
+
+Current recommended setup flow:
+
+```bash
+git clone https://github.com/edanliahovetsky/wpilib-agent-tools.git
+cd wpilib-agent-tools
+./scripts/install_all.sh
+```
+
+I would describe it as:
+
+- useful enough to be worth trying
+- still experimental
+- best with a stronger lead/orchestrator model
+- something to use thoughtfully with token/subagent usage
+
+GitHub repo: **[add repo link here before posting]**
+
 ## Notes before posting
 
 - Replace the GitHub placeholder with the final public URL.
-- Optionally trim the MCP paragraph if you want a shorter post.
+- Use the full draft if you want more context; use the shorter version if you want something faster to scan.
 - Optionally add one concrete screenshot / example output if you want the post to land faster.
