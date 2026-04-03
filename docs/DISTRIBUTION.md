@@ -28,6 +28,12 @@ The canonical source-of-truth integration assets now live in the package-centere
 - `agent/src/wpilib_agent_tools/integrations/claude/`
 - `agent/src/wpilib_agent_tools/integrations/cursor/`
 
+The former top-level source path:
+
+- `skills/wpilib-agent-tools/`
+
+has been removed. Migration should happen through supported scripts rather than by restoring a second source tree.
+
 ## Why not center everything around `pipx` or PyPI?
 
 Because this project is really two things:

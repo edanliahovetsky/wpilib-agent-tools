@@ -152,3 +152,21 @@ Think of `wpilib-agent-tools` as:
 - a repo/package where the docs and install scripts remain the source of truth
 
 That is the cleanest and most honest distribution story for the first public release.
+
+## Migration note for existing users
+
+If you previously depended on the old repo source path:
+
+- `skills/wpilib-agent-tools/`
+
+that path has been removed as part of the architecture cleanup.
+
+Use the supported scripts instead:
+
+- `./scripts/sync_skill.sh`
+- `./scripts/install_all.sh`
+- `./scripts/install_harness_support.sh`
+
+The canonical in-repo Codex skill source now lives at:
+
+- `agent/src/wpilib_agent_tools/integrations/codex/skill_bundle`

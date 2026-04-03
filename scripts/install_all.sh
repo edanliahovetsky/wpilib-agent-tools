@@ -20,6 +20,10 @@ Options:
   --cursor-force              Overwrite existing generated harness/rule files
   --help                      Show this message
 
+Migration:
+  The old top-level repo source path `skills/wpilib-agent-tools/` has been removed.
+  Use this script or scripts/sync_skill.sh instead of hardcoding source paths.
+
 Examples:
   scripts/install_all.sh
   scripts/install_all.sh --cli-mode pipx --skill-mode copy

@@ -87,6 +87,20 @@ For the first public share, GitHub is the source of truth for:
 
 That means the repo + scripts + docs are the primary distribution model for now. The distro goal is near-parity support for **Codex, Claude Code, and Cursor** through one shared installer path, while `pipx` remains a convenience path for the CLI and PyPI remains deferred.
 
+## Migration note
+
+The old top-level source path `skills/wpilib-agent-tools/` is gone.
+
+If you previously relied on that repo path directly, migrate to the supported entrypoints instead:
+
+- `./scripts/sync_skill.sh`
+- `./scripts/install_all.sh`
+- `./scripts/install_harness_support.sh`
+
+The canonical in-repo Codex skill source now lives under:
+
+- `agent/src/wpilib_agent_tools/integrations/codex/skill_bundle`
+
 ## Common commands
 
 ```bash

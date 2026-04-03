@@ -25,6 +25,7 @@ The format is based on Keep a Changelog and this project follows semantic versio
 - Root documentation now includes copy-paste onboarding for local dev, Codex users, and Cursor users.
 - Root README now frames the project as a repo-first public release with one recommended install path and clearer maturity/distribution guidance.
 - Install/docs now center a shared multi-harness installer path for Codex, Claude Code, and Cursor.
+- The old top-level `skills/wpilib-agent-tools/` source path has been removed; the canonical Codex skill source is now package-centered and migration should happen through the supported scripts.
 
 ## [0.1.0] - 2026-02-19
 

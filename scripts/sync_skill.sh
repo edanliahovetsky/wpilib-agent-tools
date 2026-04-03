@@ -47,3 +47,5 @@ else
 fi
 
 echo "Synced skill to ${TARGET_DIR} (${MODE})."
+echo "Canonical repo source: ${SOURCE_DIR}"
+echo "Migration note: the old repo path skills/wpilib-agent-tools/ has been removed; use scripts/sync_skill.sh instead of hardcoding source paths."
