@@ -53,7 +53,7 @@ Right now I would describe it as:
 
 - **useful enough to be worth trying**
 - **still experimental**
-- best when used with a stronger lead/orchestrator model
+- best when used with a stronger lead/orchestrator model (for example Opus or GPT-5.4)
 - better when high-thinking modes are enabled
 - something to use thoughtfully, especially with token/subagent usage
 
