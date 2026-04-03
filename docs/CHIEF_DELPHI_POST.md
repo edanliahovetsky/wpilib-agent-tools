@@ -36,7 +36,7 @@ I also want to explicitly acknowledge other community efforts in this space that
   https://www.chiefdelphi.com/t/wip-model-context-protocol-for-frc-wpilog-and-nt4/517780
 - **AdvantageScope and Elastic Dashboard MCP Servers**  
   https://www.chiefdelphi.com/t/advantagescope-and-elastic-dashboard-mcp-servers/515906
-- **FIRST Agentic CSA - FRC AI Coding Enhancer v2** (including the docs / RAG MCP work that project grew out of)  
+- **FIRST Agentic CSA - FRC AI Coding Enhancer v2** (including related docs-focused MCP work)  
   https://www.chiefdelphi.com/t/first-agentic-csa-frc-ai-coding-enhancer-v2/508968
 
 Those projects are tackling adjacent problems from different angles, and I think that is good for the community.
