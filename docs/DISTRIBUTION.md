@@ -14,6 +14,14 @@ That means GitHub is the source of truth for:
 - the supported setup flow
 - releases / tags
 
+The supported harnesses for this release are:
+
+- Codex
+- Claude Code
+- Cursor
+
+The parity goal is **one shared installer path** that supports all three cleanly.
+
 ## Why not center everything around `pipx` or PyPI?
 
 Because this project is really two things:
@@ -24,9 +32,9 @@ Because this project is really two things:
 `pipx` and PyPI are good tools for distributing **Python CLIs**.
 They do **not** automatically solve the full setup story for:
 
-- Codex skills
+- Codex workspace instructions
+- Claude Code project/command files
 - Cursor rules
-- other agent harnesses
 - repo-local workflow docs
 
 So if the project were advertised mainly as a `pipx` or PyPI package right now, it would make the CLI feel cleaner while leaving the overall onboarding story fragmented.
@@ -38,7 +46,7 @@ So if the project were advertised mainly as a `pipx` or PyPI package right now, 
 Users clone the repo and run:
 
 ```bash
-./scripts/install_all.sh
+./scripts/install_all.sh --workspace /path/to/robot-repo --harnesses all
 ```
 
 ### Pros
@@ -51,7 +59,7 @@ Users clone the repo and run:
 ### Cons
 
 - more friction than a one-line package install
-- less polished for casual users
+- still assumes users are comfortable with a repo/workspace integration model
 
 ### 2. `pipx` from GitHub
 
@@ -70,7 +78,7 @@ pipx install "git+https://github.com/edanliahovetsky/wpilib-agent-tools.git#subd
 ### Cons
 
 - only solves the CLI cleanly
-- still leaves skills/setup/docs elsewhere
+- still needs the shared harness installer for Codex / Claude Code / Cursor
 - not ideal as the single headline onboarding story
 
 ### 3. PyPI
@@ -90,7 +98,7 @@ pipx install wpilib-agent-tools
 ### Cons
 
 - adds package publishing/release overhead
-- still does not solve the skill/setup half by itself
+- still does not solve the shared harness/setup half by itself
 - can over-signal polish if the rest of the workflow is still repo-driven
 
 ### 4. GitHub Releases
@@ -108,25 +116,21 @@ The repo can publish tagged releases with built artifacts.
 - still needs repo docs to explain setup
 - adds some release management overhead
 
-### 5. Agent-specific installers
+### 5. Three unrelated agent-specific installers
 
-Longer term, the project could grow more polished per-platform integrations for:
+One possible design would be separate installers for:
 
 - Codex
 - Claude Code
 - Cursor
-- other MCP/plugin ecosystems
-
-### Pros
-
-- better UX per tool
-- more “native” feeling installs
+- better UX per tool in isolation
+- potentially more native-feeling installs
 
 ### Cons
 
 - highest maintenance burden
 - easy to fragment the docs
-- not the best first-release investment
+- violates the shared-installer goal
 
 ## Recommendation for this release
 
@@ -136,11 +140,12 @@ Use this structure:
 
 - GitHub repo
 - `INSTALL.md`
-- `./scripts/install_all.sh`
+- `./scripts/install_all.sh --workspace /path/to/robot-repo --harnesses all`
+- `./scripts/install_harness_support.sh --workspace /path/to/robot-repo --harnesses all`
 
 ### Secondary
 
-- `pipx` from GitHub for CLI-only users
+- `pipx` from GitHub for CLI installation
 - manual component install for advanced users
 
 ### Deferred
@@ -160,6 +165,6 @@ It matches the real state of the project:
 
 It also keeps the public story honest:
 
-- there is one recommended path
+- there is one shared installer story for Codex, Claude Code, and Cursor
 - alternate paths exist, but are not competing “official” stories
 - future packaging improvements can happen after real user feedback

@@ -7,7 +7,19 @@ from typing import Any, Callable
 
 from wpilib_agent_tools import __version__
 from wpilib_agent_tools.commands import TOP_LEVEL_COMMANDS
-from wpilib_agent_tools.commands import graph, keys, logs, math, query, record, rules, sandbox, sim, view
+from wpilib_agent_tools.commands import (
+    graph,
+    harness,
+    keys,
+    logs,
+    math,
+    query,
+    record,
+    rules,
+    sandbox,
+    sim,
+    view,
+)
 
 
 CommandRegistrar = Callable[[Any], None]
@@ -23,6 +35,7 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     registrars: dict[str, CommandRegistrar] = {
+        "harness": harness.register_subparser,
         "sim": sim.register_subparser,
         "logs": logs.register_subparser,
         "keys": keys.register_subparser,

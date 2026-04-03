@@ -13,14 +13,17 @@ Options:
   --codex-home <path>         Codex home path (default: $CODEX_HOME or ~/.codex)
   --skip-codex                Skip Codex skill sync
   --skip-checks               Skip skill validation + smoke checks
-  --cursor-workspace <path>   Also install Cursor rules into this workspace
-  --cursor-mode <core|all>    Cursor rules install mode (default: core)
-  --cursor-force              Overwrite existing Cursor rule files
+  --workspace <path>          Install shared harness support into a target workspace
+  --harnesses <all|list>      Harnesses to install (default: all)
+  --cursor-workspace <path>   Backward-compatible alias for --workspace with Cursor-only install
+  --cursor-mode <core|all>    Cursor rule mode within shared harness install (default: core)
+  --cursor-force              Overwrite existing generated harness/rule files
   --help                      Show this message
 
 Examples:
   scripts/install_all.sh
   scripts/install_all.sh --cli-mode pipx --skill-mode copy
+  scripts/install_all.sh --workspace ~/FRC/2026-Robot-Code --harnesses all
   scripts/install_all.sh --cursor-workspace ~/FRC/2026-Robot-Code --cursor-mode core
 EOF
 }
@@ -31,6 +34,8 @@ SKILL_MODE="symlink"
 CODEX_HOME="${CODEX_HOME:-${HOME}/.codex}"
 SKIP_CODEX=0
 SKIP_CHECKS=0
+WORKSPACE=""
+HARNESSES="all"
 CURSOR_WORKSPACE=""
 CURSOR_MODE="core"
 CURSOR_FORCE=0
@@ -60,6 +65,14 @@ while [[ $# -gt 0 ]]; do
     --skip-checks)
       SKIP_CHECKS=1
       shift
+      ;;
+    --workspace)
+      WORKSPACE="$2"
+      shift 2
+      ;;
+    --harnesses)
+      HARNESSES="$2"
+      shift 2
       ;;
     --cursor-workspace)
       CURSOR_WORKSPACE="$2"
@@ -100,6 +113,22 @@ fi
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
+if [[ -n "${CURSOR_WORKSPACE}" ]]; then
+  WORKSPACE="${CURSOR_WORKSPACE}"
+  HARNESSES="cursor"
+fi
+
+AUTO_SKIP_CODEX=0
+if [[ -n "${WORKSPACE}" && "${SKIP_CODEX}" -eq 0 ]]; then
+  case ",${HARNESSES}," in
+    *,all,*|*,codex,*)
+      ;;
+    *)
+      AUTO_SKIP_CODEX=1
+      ;;
+  esac
+fi
+
 echo "[1/4] Installing CLI (${CLI_MODE})"
 CLI_CMD=("${REPO_ROOT}/scripts/install_cli.sh" --mode "${CLI_MODE}")
 if [[ -n "${PIPX_SPEC}" ]]; then
@@ -107,9 +136,11 @@ if [[ -n "${PIPX_SPEC}" ]]; then
 fi
 "${CLI_CMD[@]}"
 
-if [[ "${SKIP_CODEX}" -eq 0 ]]; then
+if [[ "${SKIP_CODEX}" -eq 0 && "${AUTO_SKIP_CODEX}" -eq 0 ]]; then
   echo "[2/4] Syncing Codex skill (${SKILL_MODE})"
   "${REPO_ROOT}/scripts/sync_skill.sh" --mode "${SKILL_MODE}" --codex-home "${CODEX_HOME}"
+elif [[ "${AUTO_SKIP_CODEX}" -eq 1 ]]; then
+  echo "[2/4] Skipping Codex skill sync (codex not selected in --harnesses)"
 else
   echo "[2/4] Skipping Codex skill sync"
 fi
@@ -126,19 +157,20 @@ else
   echo "[3/4] Skipping validation checks"
 fi
 
-if [[ -n "${CURSOR_WORKSPACE}" ]]; then
-  echo "[4/4] Installing Cursor rules (${CURSOR_MODE})"
-  CURSOR_CMD=(
-    "${REPO_ROOT}/scripts/install_cursor_rules.sh"
-    --workspace "${CURSOR_WORKSPACE}"
-    --mode "${CURSOR_MODE}"
+if [[ -n "${WORKSPACE}" ]]; then
+  echo "[4/4] Installing workspace harness support (${HARNESSES})"
+  HARNESS_CMD=(
+    "${REPO_ROOT}/scripts/install_harness_support.sh"
+    --workspace "${WORKSPACE}"
+    --harnesses "${HARNESSES}"
+    --cursor-mode "${CURSOR_MODE}"
   )
   if [[ "${CURSOR_FORCE}" -eq 1 ]]; then
-    CURSOR_CMD+=(--force)
+    HARNESS_CMD+=(--force)
   fi
-  "${CURSOR_CMD[@]}"
+  "${HARNESS_CMD[@]}"
 else
-  echo "[4/4] Cursor setup skipped (no --cursor-workspace provided)"
+  echo "[4/4] Workspace harness setup skipped (no --workspace provided)"
 fi
 
 echo "Install complete."

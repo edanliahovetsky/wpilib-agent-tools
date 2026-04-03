@@ -12,12 +12,12 @@ Hey all,
 
 I wanted to share a side project I have been working on: **`wpilib-agent-tools`**.
 
-It is basically a repo-first toolkit for agentic WPILib workflows — especially around **closed-loop sim validation**, bounded sim runs, NT4 recording, and WPILOG analysis. It is not a polished product, but it has already been genuinely useful for me and feels worth sharing in case it is useful to other teams too.
+It is basically a repo-first toolkit for agentic WPILib workflows — especially around **closed-loop sim validation**, bounded sim runs, NT4 recording, and WPILOG analysis. It now has a shared installer path for **Codex, Claude Code, and Cursor**. It is not a polished product, but it has already been genuinely useful for me and feels worth sharing in case it is useful to other teams too.
 
 The repo currently bundles:
 
 1. a Python CLI for sim / NT4 / WPILOG workflows
-2. a Codex-oriented skill/workflow bundle for agentic coding
+2. workspace support for Codex, Claude Code, and Cursor, plus a Codex skill/workflow bundle
 
 This is **not MCP-based**. That was mostly a practicality decision for this project: I wanted the first version to stay simpler and more repo-first rather than spending more time building around MCP up front. I still think MCP is a really promising direction, and I also want to acknowledge some of the FRC projects exploring that path more directly:
 
@@ -30,7 +30,7 @@ Current recommended setup flow:
 ```bash
 git clone https://github.com/edanliahovetsky/wpilib-agent-tools.git
 cd wpilib-agent-tools
-./scripts/install_all.sh
+./scripts/install_all.sh --workspace /path/to/robot-repo --harnesses all
 ```
 
 I would describe it as:
@@ -55,7 +55,7 @@ This is not a polished product release so much as a **useful experiment that has
 At a high level, the repo currently packages two things together:
 
 1. a Python CLI for WPILib sim / NT4 / WPILOG workflows
-2. a Codex-oriented skill/workflow bundle for agentic coding
+2. workspace support for Codex, Claude Code, and Cursor, plus a Codex skill/workflow bundle
 
 The rough goal is to make it easier to:
 
@@ -84,7 +84,7 @@ For this repo specifically, the current recommendation is a **repo-first setup f
 ```bash
 git clone https://github.com/edanliahovetsky/wpilib-agent-tools.git
 cd wpilib-agent-tools
-./scripts/install_all.sh
+./scripts/install_all.sh --workspace /path/to/robot-repo --harnesses all
 ```
 
 Right now I would describe it as:
@@ -114,12 +114,12 @@ Hey all,
 
 I wanted to share a side project I have been working on: **`wpilib-agent-tools`**.
 
-It is basically a repo-first toolkit for agentic WPILib workflows — especially around **closed-loop sim validation**, bounded sim runs, NT4 recording, and WPILOG analysis. It is not a polished product, but it has already been genuinely useful for me and feels worth sharing in case it is useful to other teams too.
+It is basically a repo-first toolkit for agentic WPILib workflows — especially around **closed-loop sim validation**, bounded sim runs, NT4 recording, and WPILOG analysis. It now has a shared installer path for **Codex, Claude Code, and Cursor**. It is not a polished product, but it has already been genuinely useful for me and feels worth sharing in case it is useful to other teams too.
 
 The repo currently bundles:
 
 1. a Python CLI for sim / NT4 / WPILOG workflows
-2. a Codex-oriented skill/workflow bundle for agentic coding
+2. workspace support for Codex, Claude Code, and Cursor, plus a Codex skill/workflow bundle
 
 This is **not MCP-based**. That was mostly a practicality decision for this project: I wanted the first version to stay simpler and more repo-first rather than spending more time building around MCP up front. I still think MCP is a really promising direction, and I also want to acknowledge some of the FRC projects exploring that path more directly:
 
@@ -132,7 +132,7 @@ Current recommended setup flow:
 ```bash
 git clone https://github.com/edanliahovetsky/wpilib-agent-tools.git
 cd wpilib-agent-tools
-./scripts/install_all.sh
+./scripts/install_all.sh --workspace /path/to/robot-repo --harnesses all
 ```
 
 I would describe it as:

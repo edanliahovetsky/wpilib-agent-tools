@@ -23,6 +23,7 @@ Use the lightest path that satisfies the goal:
 | `math` | Symbolic/numeric quick checks | `--mode`, `--expr`, `--equation`, `--value`, `--json` | Invalid expression/equation | Reduce expression and validate syntax |
 | `sim` | Run bounded simulation with optional auto-recording and assertions | `--duration`, `--record-delay`, `--assert-key`, `--assert-range`, `--json` | `no_log_file_found`, missing early behavior | Increase duration, lower record delay, add startup wait in robot command flow |
 | `sandbox` | Isolated edit/run lifecycle | `create`, `run`, `status`, `stop`, `patch`, `clean`, `--json` | Busy/stale sandbox or run collision | `sandbox status`, then `sandbox stop`/`clean --force` as needed |
+| `harness` | Install shared workspace support for Codex, Claude Code, and Cursor | `install --workspace`, `--harnesses`, `--cursor-mode`, `--force`, `--json` | Workspace mismatch or stale generated files | Re-run with correct `--workspace` and `--force` if replacing generated files |
 | `rules` | Install Cursor rule templates | `install --mode core|all`, `--target`, `--force`, `--json` | Files already present or target mismatch | Re-run with `--force` or correct target/output-dir |
 
 ## Fluent Usage Rules

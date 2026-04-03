@@ -14,6 +14,7 @@ WORKSPACE ?=
 	validate-2026 \
 	install-all \
 	install-codex \
+	install-harness \
 	install-cursor \
 	install-cli-pipx \
 	release-check
@@ -56,6 +57,13 @@ install-all:
 
 install-codex:
 	@./scripts/sync_skill.sh --mode symlink
+
+install-harness:
+	@if [[ -z "$(WORKSPACE)" ]]; then \
+		echo "Set WORKSPACE=/path/to/robot-repo"; \
+		exit 2; \
+	fi
+	@./scripts/install_harness_support.sh --workspace "$(WORKSPACE)" --harnesses all --cursor-mode "$(CURSOR_MODE)"
 
 install-cursor:
 	@if [[ -z "$(WORKSPACE)" ]]; then \

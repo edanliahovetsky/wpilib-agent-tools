@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 TOP_LEVEL_COMMANDS: tuple[str, ...] = (
+    "harness",
     "sim",
     "logs",
     "keys",

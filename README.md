@@ -2,10 +2,10 @@
 
 `wpilib-agent-tools` is a repo-first toolkit for FRC teams using agentic coding workflows around WPILib simulation, NT4 recording, and WPILOG analysis.
 
-This repo currently ships two pieces together:
+This repo currently ships two main pieces together:
 
 1. a Python CLI for simulation/log workflows in [`agent/`](agent/)
-2. a Codex skill bundle for agent orchestration in [`skills/wpilib-agent-tools/`](skills/wpilib-agent-tools/)
+2. harness support assets/docs for **Codex, Claude Code, and Cursor**
 
 ## Why this exists
 
@@ -17,26 +17,26 @@ It is worth trying if you are already experimenting with agentic coding in FRC a
 - bounded sim runs
 - NT4 recording to WPILOG
 - quick log/query/graph tooling
-- reusable workflow instructions for coding agents
+- a shared installation path for Codex, Claude Code, and Cursor
 
 ## Current status
 
 This is **useful and real**, but still **experimental**.
 
 - not fully polished
-- not universally plug-and-play across every coding agent
+- scoped to Codex, Claude Code, and Cursor rather than every possible coding agent
 - **not MCP-based**
 - best results tend to come from stronger lead/orchestrator models (for example Opus or GPT-5.4) and higher-thinking modes
 - token usage and subagent usage still deserve care
 
-## Recommended install path for this first release
+## Recommended install path
 
 For now, the canonical setup path is:
 
 ```bash
 git clone https://github.com/edanliahovetsky/wpilib-agent-tools.git
 cd wpilib-agent-tools
-./scripts/install_all.sh
+./scripts/install_all.sh --workspace /path/to/robot-repo --harnesses all
 ```
 
 That path keeps the code, scripts, and install instructions in one place.
@@ -44,10 +44,10 @@ That path keeps the code, scripts, and install instructions in one place.
 What it does:
 
 - bootstraps the local CLI into `./.venv`
-- syncs the Codex skill bundle
 - validates the skill structure
 - runs smoke checks
-- optionally installs Cursor rules if you pass a workspace
+- installs shared harness support into the target workspace
+- creates a consistent workspace entry path for Codex, Claude Code, and Cursor
 
 For deeper setup details, see:
 
@@ -57,7 +57,7 @@ For deeper setup details, see:
 
 ## Alternate install paths
 
-These are supported, but secondary to the repo-first path above.
+These are supported, but secondary to the shared installer path above.
 
 ### CLI only via `pipx` from GitHub
 
@@ -65,20 +65,14 @@ These are supported, but secondary to the repo-first path above.
 pipx install "git+https://github.com/edanliahovetsky/wpilib-agent-tools.git#subdirectory=agent"
 ```
 
-This is convenient if you mainly want the CLI. It does **not** fully solve the skill/setup side of the project by itself.
+This is convenient if you mainly want the CLI. It does **not** replace the shared workspace installer for Codex, Claude Code, and Cursor.
 
-### Manual Codex skill sync
+### Harness support only
 
-```bash
-./scripts/sync_skill.sh --mode symlink
-```
-
-Use `--mode copy` if you want a snapshot install instead of a symlink.
-
-### Cursor rule install
+Use the shared harness installer directly:
 
 ```bash
-./scripts/install_cursor_rules.sh --workspace /path/to/robot-repo --mode core
+./scripts/install_harness_support.sh --workspace /path/to/robot-repo --harnesses all
 ```
 
 ## Distribution strategy for this release
@@ -91,7 +85,7 @@ For the first public share, GitHub is the source of truth for:
 - tagged releases
 - issue tracking
 
-That means the repo + scripts + docs are the primary distribution model for now. `pipx` is offered as a convenience path for the CLI, while PyPI and more polished multi-agent packaging are intentionally deferred until there is real usage feedback.
+That means the repo + scripts + docs are the primary distribution model for now. The distro goal is near-parity support for **Codex, Claude Code, and Cursor** through one shared installer path, while `pipx` remains a convenience path for the CLI and PyPI remains deferred.
 
 ## Common commands
 

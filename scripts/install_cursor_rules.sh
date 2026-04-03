@@ -54,21 +54,17 @@ if [[ "${MODE}" != "core" && "${MODE}" != "all" ]]; then
 fi
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-RUN_CLI="${REPO_ROOT}/scripts/run_cli.sh"
 WORKSPACE_PATH="$(cd "${WORKSPACE}" && pwd)"
-RULES_DIR="${WORKSPACE_PATH}/.cursor/rules"
 
 CMD=(
-  "${RUN_CLI}"
-  rules
-  install
-  --mode "${MODE}"
-  --target custom
-  --output-dir "${RULES_DIR}"
+  "${REPO_ROOT}/scripts/install_harness_support.sh"
+  --workspace "${WORKSPACE_PATH}"
+  --harnesses cursor
+  --cursor-mode "${MODE}"
 )
 if [[ "${FORCE}" -eq 1 ]]; then
   CMD+=(--force)
 fi
 
 "${CMD[@]}"
-echo "Cursor rules installed at ${RULES_DIR} (mode=${MODE})."
+echo "Cursor rules installed at ${WORKSPACE_PATH}/.cursor/rules (mode=${MODE})."

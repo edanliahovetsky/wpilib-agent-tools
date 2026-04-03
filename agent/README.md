@@ -26,6 +26,7 @@ The design goal is safe iteration:
   - [math](#math)
   - [sim](#sim)
   - [sandbox](#sandbox)
+  - [harness](#harness)
   - [rules](#rules)
 - [Data Formats and Struct Decoding](#data-formats-and-struct-decoding)
 - [Filesystem Locations](#filesystem-locations)
@@ -43,7 +44,8 @@ The design goal is safe iteration:
 - **Log analysis**: inspect keys, compute metrics, derive series, reconstruct DriverStation state, and more.
 - **Graph generation**: output PNG plots for values, derivatives, and integrals.
 - **NetworkTables recording**: capture live NT4 streams into WPILOG files.
-- **Cursor rule installation (compatibility path)**: install packaged `.mdc` templates for Cursor-specific sandbox workflow guidance.
+- **Shared harness installation**: install workspace support for Codex, Claude Code, and Cursor from one command.
+- **Cursor rule installation (compatibility path)**: install packaged `.mdc` templates directly when you only need Cursor rules.
 
 ## Installation
 
@@ -109,7 +111,8 @@ wpilib-agent-tools sandbox clean --name tune_shooter
 | `math` | Symbolic/numeric math operations |
 | `sim` | Run a bounded simulation task |
 | `sandbox` | Full sandbox lifecycle management |
-| `rules` | Install Cursor rule templates |
+| `harness` | Install shared workspace support for Codex, Claude Code, and Cursor |
+| `rules` | Install Cursor rule templates directly (compatibility path) |
 
 Most commands support `--json` for machine-readable output (and many support `--json-compact` for lower-overhead output). `view` is intentionally human-oriented and does not expose JSON mode.
 
@@ -335,11 +338,31 @@ wpilib-agent-tools sandbox patch --name expA --output expA.diff
 - `clean --force` can remove busy sandboxes
 - `patch` requires a git-backed sandbox
 
+### harness
+
+Install shared workspace support for the three supported harnesses: Codex, Claude Code, and Cursor.
+
+```bash
+wpilib-agent-tools harness install --workspace /path/to/robot-repo
+wpilib-agent-tools harness install --workspace /path/to/robot-repo --harnesses codex,claude
+wpilib-agent-tools harness install --workspace /path/to/robot-repo --cursor-mode all
+wpilib-agent-tools harness install --workspace /path/to/robot-repo --force --json
+```
+
+#### Behavior
+
+- Creates a workspace-local runner at `.wpilib-agent-tools/run_cli.sh`
+- Installs a managed Codex block into `AGENTS.md`
+- Installs a managed Claude Code block into `CLAUDE.md`
+- Installs a Claude Code slash command into `.claude/commands/`
+- Installs Cursor rules into `.cursor/rules/`
+- Keeps one shared installer path for all three harnesses
+
 ### rules
 
 Install Cursor rule templates for sandbox-oriented workflows.
 
-Use this command only when integrating with Cursor rule files. For Codex usage, prefer the skill bundle in `../skills/wpilib-agent-tools`.
+Use this command only when you specifically want the Cursor-only compatibility path. For near-parity multi-harness setup, prefer `harness install`.
 
 ```bash
 wpilib-agent-tools rules install
