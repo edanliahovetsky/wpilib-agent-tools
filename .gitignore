@@ -1,5 +1,6 @@
 .DS_Store
 .omx/
+.omc/
 
 # Python
 __pycache__/
@@ -29,4 +30,7 @@ wheels/
 agent/.venv/
 agent/.pytest_cache/
 agent/reports/
+.env
+.env.*
+*.secret*
 *.log

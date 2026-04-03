@@ -26,7 +26,7 @@ This is **useful and real**, but still **experimental**.
 - not fully polished
 - not universally plug-and-play across every coding agent
 - **not MCP-based**
-- best results tend to come from stronger lead/orchestrator models and higher-thinking modes
+- best results tend to come from stronger lead/orchestrator models (for example Opus or GPT-5.4) and higher-thinking modes
 - token usage and subagent usage still deserve care
 
 ## Recommended install path for this first release
