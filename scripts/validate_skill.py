@@ -7,15 +7,53 @@ import re
 import sys
 from pathlib import Path
 
-import yaml
+
+def _parse_simple_yaml_mapping(text: str) -> dict[str, object]:
+    root: dict[str, object] = {}
+    stack: list[tuple[int, dict[str, object]]] = [(-1, root)]
+
+    for raw_line in text.splitlines():
+        if not raw_line.strip() or raw_line.lstrip().startswith("#"):
+            continue
+
+        indent = len(raw_line) - len(raw_line.lstrip(" "))
+        if indent % 2 != 0:
+            raise ValueError("YAML indentation must use multiples of two spaces")
+
+        line = raw_line.strip()
+        if ":" not in line:
+            raise ValueError(f"Invalid YAML line: {raw_line}")
+        key, value = line.split(":", 1)
+        key = key.strip()
+        value = value.strip()
+        if not key:
+            raise ValueError(f"Invalid YAML key in line: {raw_line}")
+
+        while stack and indent <= stack[-1][0]:
+            stack.pop()
+        if not stack:
+            raise ValueError(f"Could not determine YAML parent for line: {raw_line}")
+        parent = stack[-1][1]
+
+        if value:
+            if value[0] == value[-1] and value[0] in {"'", '"'}:
+                value = value[1:-1]
+            parent[key] = value
+            continue
+
+        child: dict[str, object] = {}
+        parent[key] = child
+        stack.append((indent, child))
+
+    return root
 
 
-def _frontmatter(skill_md: Path) -> dict[str, str]:
+def _frontmatter(skill_md: Path) -> dict[str, object]:
     content = skill_md.read_text(encoding="utf-8")
     match = re.match(r"^---\n(.*?)\n---", content, re.DOTALL)
     if not match:
         raise ValueError("SKILL.md frontmatter missing or malformed")
-    parsed = yaml.safe_load(match.group(1))
+    parsed = _parse_simple_yaml_mapping(match.group(1))
     if not isinstance(parsed, dict):
         raise ValueError("SKILL.md frontmatter must be a YAML dictionary")
     return parsed
@@ -51,7 +89,7 @@ def validate_skill(skill_dir: Path) -> list[str]:
 
     if openai_yaml.exists():
         try:
-            data = yaml.safe_load(openai_yaml.read_text(encoding="utf-8"))
+            data = _parse_simple_yaml_mapping(openai_yaml.read_text(encoding="utf-8"))
         except Exception as exc:
             errors.append(f"invalid YAML in agents/openai.yaml: {exc}")
             data = None
