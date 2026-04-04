@@ -180,3 +180,7 @@ It also keeps the public story honest:
 - there is one shared installer story for Codex, Claude Code, and Cursor
 - alternate paths exist, but are not competing “official” stories
 - future packaging improvements can happen after real user feedback
+
+For the latest tested coverage and remaining gaps, see:
+
+- [VALIDATION_STATUS.md](VALIDATION_STATUS.md)

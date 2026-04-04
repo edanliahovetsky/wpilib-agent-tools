@@ -18,6 +18,7 @@ The format is based on Keep a Changelog and this project follows semantic versio
 - Top-level `LICENSE` for public repository sharing.
 - Canonical install guide at `INSTALL.md`.
 - Distribution notes at `docs/DISTRIBUTION.md`.
+- Validation status report at `docs/VALIDATION_STATUS.md`.
 - Chief Delphi draft post at `docs/CHIEF_DELPHI_POST.md`.
 - Shared `harness install` CLI support for Codex, Claude Code, and Cursor.
 

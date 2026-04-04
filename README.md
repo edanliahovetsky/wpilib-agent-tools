@@ -53,6 +53,7 @@ For deeper setup details, see:
 
 - [INSTALL.md](INSTALL.md) — canonical onboarding/install doc
 - [docs/DISTRIBUTION.md](docs/DISTRIBUTION.md) — why the first release is repo-first
+- [docs/VALIDATION_STATUS.md](docs/VALIDATION_STATUS.md) — latest validation coverage and known gaps
 - [agent/README.md](agent/README.md) — full CLI reference
 
 ## Alternate install paths
@@ -142,3 +143,14 @@ Update `CHANGELOG.md` before tagging.
 ## Draft share copy
 
 A working Chief Delphi draft lives at [docs/CHIEF_DELPHI_POST.md](docs/CHIEF_DELPHI_POST.md).
+
+## Current validation note
+
+The repo has been thoroughly validated across:
+
+- repo-contained checks
+- install-path validation
+- live Codex validation
+- live Claude Code validation
+
+The main remaining explicit gap is **full headless/noninteractive Cursor agent validation**. See [docs/VALIDATION_STATUS.md](docs/VALIDATION_STATUS.md) for details.

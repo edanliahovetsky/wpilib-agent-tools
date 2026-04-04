@@ -153,6 +153,19 @@ Think of `wpilib-agent-tools` as:
 
 That is the cleanest and most honest distribution story for the first public release.
 
+## Validation status
+
+The current validation state is documented in:
+
+- [docs/VALIDATION_STATUS.md](docs/VALIDATION_STATUS.md)
+
+Short version:
+
+- repo-contained checks are green
+- install paths have been exercised
+- Codex and Claude Code were live-tested against real generated guidance
+- Cursor install/rules were validated, but full headless/noninteractive `cursor agent` validation is still an explicit remaining gap
+
 ## Migration note for existing users
 
 If you previously depended on the old repo source path:
