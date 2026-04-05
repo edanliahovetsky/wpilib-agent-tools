@@ -6,6 +6,8 @@ The format is based on Keep a Changelog and this project follows semantic versio
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-04-05
+
 ### Added
 - One-command installer `scripts/install_all.sh` for Codex + optional Cursor setup.
 - Dedicated installers:

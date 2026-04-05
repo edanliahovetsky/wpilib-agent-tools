@@ -1,6 +1,9 @@
 .DS_Store
 .omx/
 .omc/
+CLAUDE.md
+.mcp.json
+.agenthapy/
 
 # Python
 __pycache__/

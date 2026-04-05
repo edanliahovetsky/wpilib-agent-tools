@@ -42,7 +42,7 @@ I would describe it as:
 
 If people try it and have feedback on the install story, workflow shape, or which parts are actually useful vs noisy, I would love to hear it.
 
-GitHub repo: **[add repo link here before posting]**
+GitHub repo: **https://github.com/edanliahovetsky/wpilib-agent-tools**
 
 ## Draft post
 
@@ -106,7 +106,7 @@ If people try it and have feedback on:
 
 I would love to hear it.
 
-GitHub repo: **[add repo link here before posting]**
+GitHub repo: **https://github.com/edanliahovetsky/wpilib-agent-tools**
 
 ## Shorter version
 
@@ -142,7 +142,7 @@ I would describe it as:
 - best with a stronger lead/orchestrator model
 - something to use thoughtfully with token/subagent usage
 
-GitHub repo: **[add repo link here before posting]**
+GitHub repo: **https://github.com/edanliahovetsky/wpilib-agent-tools**
 
 ## Notes before posting
 
