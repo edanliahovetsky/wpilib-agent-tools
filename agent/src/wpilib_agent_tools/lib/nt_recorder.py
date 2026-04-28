@@ -376,8 +376,9 @@ class NTRecorder:
         server_host: str,
         server_port: int | None,
     ) -> None:
-        # Give NT4 a short grace period to establish transport before sampling.
-        timeout = max(0.5, min(5.0, self.duration_sec * 0.5))
+        # Give NT4 enough time to establish transport before sampling. Very short
+        # recordings still need a practical connection grace period on slower CI.
+        timeout = max(2.0, min(5.0, self.duration_sec))
         deadline = time.monotonic() + timeout
         resolved_host_ips = _resolve_host_ips(server_host)
 
