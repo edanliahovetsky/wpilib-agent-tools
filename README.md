@@ -2,6 +2,8 @@
 
 `wpilib-agent-tools` is an experimental, repo-first toolkit for FRC teams exploring agentic coding workflows around WPILib simulation, NT4 recording, and WPILOG analysis.
 
+The tooling is meant to help agents work more effectively with WPILib simulation, NT4 data, and `.wpilog` analysis. It gives models a focused set of CLI commands and markdown guidance for gathering evidence, checking behavior, and iterating on robot code without immediately mutating the real workspace.
+
 It packages two related pieces:
 
 - a Python CLI for simulation, log, graph, math, sandbox, and NT4 workflows in [agent/](agent/)
@@ -49,6 +51,26 @@ The useful loop is intentionally evidence-driven:
 
 The goal is not to let a model blindly edit robot code. The goal is to make verification faster, more repeatable, and easier to inspect.
 
+## Agent-Oriented Capabilities
+
+At a high level, this toolkit enables agents to analyze robot behavior with purpose-built commands and to run closed-loop simulation experiments in isolated workspaces.
+
+For `.wpilog` analysis, it supports:
+
+- graphing and visualization via Matplotlib
+- NT4 key listing and querying
+- basic math and statistics helpers, including derivatives, integrals, min/max, averages, standard deviations, RMS values, thresholds, and settling metrics
+- output gating through limits, summaries, JSON modes, and compact JSON modes, which helps avoid dumping huge logs into model context
+
+For WPILib simulation iteration, it supports:
+
+- automatically creating and managing sandboxes
+- switching a robot repo into simulation mode
+- running simulation, recording NT4 output, analyzing the resulting logs, modifying code, and repeating the loop
+- workflows that currently work best with AdvantageKit-style repos
+
+There is also support for recording NT4 from a live robot source through the same pipeline. That path exists, but it is less tested than the simulation and log-analysis workflow.
+
 ## What It Helps With
 
 | Workflow | Examples |
@@ -59,6 +81,16 @@ The goal is not to let a model blindly edit robot code. The goal is to make veri
 | WPILOG analysis | Inspect keys, query values, calculate stats, and generate graphs |
 | Math checks | Run symbolic or numeric checks while debugging control logic |
 | Agent setup | Install consistent project guidance for Codex, Claude Code, and Cursor |
+
+## Example Agent Prompts
+
+These are the kinds of tasks this tooling is intended to support:
+
+> Using wpilib-agent-tools, create a new sandbox and diagnose/fix this superstructure behavior. I require functionality xyz and observed abc. Iterate until completion.
+
+> Using wpilib-agent-tools, create a new sandbox and find the root cause of symptom xyz in my auto routine. I require functionality xyz and observed abc. Iterate until completion.
+
+> Using wpilib-agent-tools, analyze this match log and check whether all subsystems are meeting their commanded setpoints throughout the match. I require functionality xyz and observed abc.
 
 ## Install Options
 
@@ -102,15 +134,25 @@ Use this when the CLI is already available and you only need to provision worksp
 
 This project is **experimental**.
 
-It is useful enough to try if you are already exploring agentic FRC workflows, but it still has rough edges:
+It was developed near the beginning of build season mostly out of curiosity, then used for a few weeks during early competition-season robot-code development. In practice, focused CLI commands plus well-scoped markdown guidance made modern LLMs more effective in the FRC ecosystem than expected.
+
+The core tooling is functional, but the packaging and distribution are still experimental. It is useful enough to try if you are already exploring agentic FRC workflows, but it still has rough edges:
 
 - best results tend to come from stronger lead/orchestrator models and higher-reasoning modes
-- token usage, usage-based pricing, and subagent usage deserve care
+- the model needs enough long-horizon capability to read the robot repo, understand the tooling instructions, run the CLI, inspect evidence, and iterate without losing the thread
+- encouraging the model to use subagents for broad search or parallel investigation can help with speed and token cost
+- token usage, usage-based pricing, and subagent usage still deserve care
 - model outputs still need normal engineering review
 - hallucinated fixes, misunderstood logs, and weak math are realistic failure modes
+- the live-robot NT4 recording path is less tested than the simulation and log-analysis workflow
+- there are likely still bugs and rough edges, including possible bugs in the CLI itself
 - Cursor support is installer-validated, but full headless/noninteractive Cursor agent validation is still a known gap
 
 For teams using this with students, treat it as a tool for investigation, verification, and learning. It should make evidence easier to gather, not remove the need to understand the robot code.
+
+Like with all agentic tooling, a skilled driver is still needed. The tools can make evidence gathering and iteration much faster, but they do not remove the need to review changes, manage context, prevent runaway behavior, and make sure the agent is actually aligned with the intended robot behavior.
+
+Issues and forks are welcome.
 
 ## Distribution Model
 
@@ -129,6 +171,8 @@ The primary distribution model is repo-first:
 ```
 
 This project is **not MCP-based**. That is a scope decision for this experiment: the current implementation is a CLI plus packaged workspace guidance and harness assets. MCP may be a good direction for adjacent FRC tooling, but this repo currently optimizes for a simple, inspectable, source-first setup.
+
+Claude Code and Codex both have strong skill/project setup workflows, and the models should generally be capable of setting up `wpilib-agent-tools` from the repo URL with a little direction if anything goes wrong.
 
 ## Migration Note
 
