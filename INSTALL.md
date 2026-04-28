@@ -1,6 +1,6 @@
 # Install and Onboarding
 
-This file is the canonical setup guide for the first public release of `wpilib-agent-tools`.
+This file is the recommended setup guide for the current experimental public snapshot of `wpilib-agent-tools`.
 
 ## Who this is for
 
@@ -11,7 +11,7 @@ This project is a good fit if you are:
 - using Codex, Claude Code, or Cursor
 - comfortable with a repo/package-first install flow
 
-This is probably **not** the right tool if you want a fully polished, universal integration across every coding assistant right away. The supported harnesses for this release are **Codex, Claude Code, and Cursor**.
+This is probably **not** the right tool if you want a polished, universal integration across every coding assistant right away. The supported harnesses for this snapshot are **Codex, Claude Code, and Cursor**.
 
 ## Recommended path: clone the repo and run the installer
 
@@ -51,13 +51,13 @@ Useful examples:
 
 ```bash
 # Local CLI + install all three harnesses into a robot repo
-./scripts/install_all.sh --workspace ~/FRC/2026-Robot-Code --harnesses all
+./scripts/install_all.sh --workspace /path/to/robot-repo --harnesses all
 
 # Global CLI via pipx, then install all three harnesses into a robot repo
-./scripts/install_all.sh --cli-mode pipx --workspace ~/FRC/2026-Robot-Code --harnesses all
+./scripts/install_all.sh --cli-mode pipx --workspace /path/to/robot-repo --harnesses all
 
 # Install only Codex + Claude Code harness support
-./scripts/install_all.sh --workspace ~/FRC/2026-Robot-Code --harnesses codex,claude
+./scripts/install_all.sh --workspace /path/to/robot-repo --harnesses codex,claude
 ```
 
 ## Agent-specific notes
@@ -126,7 +126,7 @@ or
 pip install wpilib-agent-tools
 ```
 
-For this release, PyPI is intentionally **not** the main story. The main story is still one shared installer for the three supported harnesses.
+For this snapshot, PyPI is intentionally **not** the main story. The main story is still one shared installer for the three supported harnesses.
 
 ### Manual component install
 
@@ -143,7 +143,7 @@ If you want complete control, you can install pieces separately:
 ./scripts/install_harness_support.sh --workspace /path/to/robot-repo --harnesses all
 ```
 
-## Recommended mental model for this release
+## Recommended mental model for this snapshot
 
 Think of `wpilib-agent-tools` as:
 
@@ -151,7 +151,7 @@ Think of `wpilib-agent-tools` as:
 - one maintainable integration path for Codex, Claude Code, and Cursor
 - a repo/package where the docs and install scripts remain the source of truth
 
-That is the cleanest and most honest distribution story for the first public release.
+That is the most honest distribution story for the current experimental state of the project.
 
 ## Validation status
 

@@ -1,6 +1,6 @@
-# Profile: 2026-Robot-Code
+# Example Profile: 2026-Robot-Code
 
-This profile encodes known-good defaults for `~/FRC/2026-Robot-Code` on `comp-dev`.
+This author-specific profile encodes known-good defaults for `~/FRC/2026-Robot-Code` on `comp-dev`. Treat it as an example of profile-driven validation, not as a generic setup every team should use unchanged.
 
 ## Defaults
 

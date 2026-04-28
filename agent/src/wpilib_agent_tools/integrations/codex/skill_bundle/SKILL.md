@@ -13,7 +13,7 @@ Use this skill to run and validate WPILib robot workflows through `wpilib-agent-
   - `scripts/run_cli.sh --version`
 - For quick local validation in a target repo:
   - `scripts/validate_robot_repo.sh --repo /path/to/robot-repo --profile generic`
-- For the known 2026 profile:
+- For the author-specific 2026 profile example:
   - `scripts/validate_robot_repo.sh --repo ~/FRC/2026-Robot-Code --branch comp-dev --profile 2026-robot-code`
 
 ## Operation Modes
@@ -82,4 +82,4 @@ If early transitions are missing:
 - Validation flow: `references/validation.md`
 - Timing and recorder tuning: `references/tuning-tips.md`
 - Full CLI capability map: `references/cli-capabilities.md`
-- Repo profile example: `references/profiles/2026-robot-code.md`
+- Author-specific repo profile example: `references/profiles/2026-robot-code.md`

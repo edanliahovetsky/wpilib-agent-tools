@@ -1,10 +1,10 @@
 # Distribution Notes
 
-This document explains the distribution strategy for the first public release of `wpilib-agent-tools`.
+This document explains the distribution strategy for the current experimental public snapshot of `wpilib-agent-tools`.
 
 ## Short version
 
-For the first release, the project should be distributed as a **repo-first, GitHub-canonical** tool.
+For this snapshot, the project should be distributed as a **repo-first, GitHub-canonical** tool.
 
 That means GitHub is the source of truth for:
 
@@ -144,7 +144,7 @@ One possible design would be separate installers for:
 - easy to fragment the docs
 - violates the shared-installer goal
 
-## Recommendation for this release
+## Recommendation for this snapshot
 
 Use this structure:
 
@@ -173,7 +173,7 @@ It matches the real state of the project:
 - useful
 - real
 - worth trying
-- not fully polished yet
+- still experimental, with rough edges
 
 It also keeps the public story honest:
 

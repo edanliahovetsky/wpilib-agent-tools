@@ -1,6 +1,6 @@
 # Validation Status
 
-This document summarizes the latest thorough validation pass for the repo.
+This document summarizes the current validation snapshot for the repo.
 
 ## Scope of the pass
 
@@ -102,7 +102,7 @@ Commit:
 
 ## Current confidence level
 
-The repo is in a **strongly validated state** for:
+The repo has been validated for these paths:
 
 - repo-contained checks
 - install-path validation

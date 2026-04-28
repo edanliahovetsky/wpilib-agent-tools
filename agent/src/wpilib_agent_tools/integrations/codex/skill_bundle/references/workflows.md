@@ -76,7 +76,7 @@ scripts/validate_robot_repo.sh \
   --expected-states "STATE_A,STATE_B"
 ```
 
-For repo-specific defaults:
+For the author-specific repo profile example:
 
 ```bash
 scripts/validate_robot_repo.sh \

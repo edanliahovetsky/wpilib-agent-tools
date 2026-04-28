@@ -37,7 +37,7 @@ Important options:
 
 `2026-robot-code`:
 
-- Repo-specific default profile for `~/FRC/2026-Robot-Code`.
+- Author-specific example profile for `~/FRC/2026-Robot-Code`.
 - Applies temporary sandbox patching for known simulation/DS setup.
 - Defaults include DS and state-sequence checks plus `auto_path=topleftsweep`.
 - Intended as an example pattern for profile-driven validation.
