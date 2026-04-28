@@ -39,7 +39,7 @@ Important options:
 
 - Author-specific example profile for `~/FRC/2026-Robot-Code`.
 - Applies temporary sandbox patching for known simulation/DS setup.
-- Defaults include DS and state-sequence checks plus `auto_path=topleftsweep`.
+- Defaults include DS and state-sequence checks plus `auto_path=straight`.
 - Intended as an example pattern for profile-driven validation.
 
 ## Evaluation Logic

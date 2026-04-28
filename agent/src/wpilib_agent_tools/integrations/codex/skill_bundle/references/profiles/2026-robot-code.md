@@ -4,7 +4,7 @@ This author-specific profile encodes known-good defaults for `~/FRC/2026-Robot-C
 
 ## Defaults
 
-- `auto_path=topleftsweep`
+- `auto_path=straight`
 - `duration=30`
 - `record_delay=3`
 - `check_ds=true`
@@ -15,7 +15,7 @@ This author-specific profile encodes known-good defaults for `~/FRC/2026-Robot-C
 
 The profile applies temporary sandbox edits before sim:
 
-1. `RobotContainer.getAutonomousCommand()` -> `followPath(new Path("topleftsweep"), true)`
+1. `RobotContainer.getAutonomousCommand()` -> `Autos.followPath("straight", true)`
 2. `Robot.robotInit()` -> add `DriverStationSim` autonomous/enable/notify calls in SIM mode
 3. `settings.gradle` -> comment local `BLine-Lib` include block
 4. `Constants.currentMode` -> force `Mode.SIM`

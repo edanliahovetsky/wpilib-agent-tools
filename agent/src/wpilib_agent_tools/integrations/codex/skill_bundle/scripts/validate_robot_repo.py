@@ -156,10 +156,10 @@ def _patch_2026_profile(sandbox_path: Path, auto_path: str) -> list[str]:
     container_text = _replace_method_body(
         container_text,
         "public Command getAutonomousCommand()",
-        [f"return followPath(new Path(\"{auto_path}\"), true);"],
+        [f"return Autos.followPath(\"{auto_path}\", true);"],
     )
     robot_container.write_text(container_text, encoding="utf-8")
-    notes.append("set autonomous command to followPath(new Path(auto_path), true)")
+    notes.append("set autonomous command to Autos.followPath(auto_path, true)")
 
     constants_text = constants_java.read_text(encoding="utf-8")
     constants_text, count = re.subn(
@@ -225,7 +225,7 @@ def _normalize_profile_defaults(profile: str) -> dict[str, Any]:
         return {
             "duration": 30.0,
             "record_delay": 3.0,
-            "auto_path": "topleftsweep",
+            "auto_path": "straight",
             "state_key": "/AdvantageKit/RealOutputs/SwerveDrive/currentSystemState",
             "expected_states": ["FOLLOW_PATH", "IDLE"],
             "check_ds": True,
