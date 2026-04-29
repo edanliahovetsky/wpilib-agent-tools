@@ -19,7 +19,6 @@ This is not a polished universal AI coding platform. It is a practical experimen
 | Agent harnesses | One shared installer path for Codex, Claude Code, and Cursor workspace support |
 | Validation loop | Bounded changes in a sandbox, followed by sim/log evidence and patch review |
 | Distribution | GitHub-first source, install scripts, docs, tagged releases, and release artifacts |
-| Status | Experimental public snapshot with documented validation status and known gaps |
 
 ## Quick Start
 
