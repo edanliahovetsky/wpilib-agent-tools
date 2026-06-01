@@ -1,6 +1,8 @@
 # wpilib-agent-tools
 
-`wpilib-agent-tools` is an experimental, repo-first toolkit for FRC teams exploring agentic coding workflows around WPILib simulation, NT4 recording, and WPILOG analysis.
+`wpilib-agent-tools` is a sandbox-first AI/robotics harness for FRC teams
+working with WPILib simulation, NT4 recording, WPILOG analysis, and reviewable
+agent workflows.
 
 The tooling is meant to help agents work more effectively with WPILib simulation, NT4 data, and `.wpilog` analysis. It gives models a focused set of CLI commands and markdown guidance for gathering evidence, checking behavior, and iterating on robot code without immediately mutating the real workspace.
 
@@ -9,7 +11,9 @@ It packages two related pieces:
 - a Python CLI for simulation, log, graph, math, sandbox, and NT4 workflows in [agent/](agent/)
 - shared workspace harness support for **Codex**, **Claude Code**, and **Cursor**
 
-This is not a polished universal AI coding platform. It is a practical experiment for gathering better evidence during robot-code iteration before any patch is applied to a real workspace.
+This is not a polished universal AI coding platform. It is practical tooling
+for gathering better evidence during robot-code iteration before any patch is
+applied to a real workspace.
 
 ## At a Glance
 
@@ -19,6 +23,7 @@ This is not a polished universal AI coding platform. It is a practical experimen
 | Agent harnesses | One shared installer path for Codex, Claude Code, and Cursor workspace support |
 | Validation loop | Bounded changes in a sandbox, followed by sim/log evidence and patch review |
 | Distribution | GitHub-first source, install scripts, docs, tagged releases, and release artifacts |
+| Status | Daily-use public snapshot with documented validation status and known gaps |
 
 ## Quick Start
 
@@ -131,11 +136,13 @@ Use this when the CLI is already available and you only need to provision worksp
 
 ## Current Status
 
-This project is **experimental**.
+This project is a **public snapshot of daily-use tooling**.
 
 It was developed near the beginning of build season mostly out of curiosity, then used for a few weeks during early competition-season robot-code development. In practice, focused CLI commands plus well-scoped markdown guidance made modern LLMs more effective in the FRC ecosystem than expected.
 
-The core tooling is functional, but the packaging and distribution are still experimental. It is useful enough to try if you are already exploring agentic FRC workflows, but it still has rough edges:
+The tooling is functional, but the packaging and distribution still have rough
+edges. It is useful enough to try if you are already exploring agentic FRC
+workflows, but it still has known gaps:
 
 - best results tend to come from stronger lead/orchestrator models and higher-reasoning modes
 - the model needs enough long-horizon capability to read the robot repo, understand the tooling instructions, run the CLI, inspect evidence, and iterate without losing the thread
