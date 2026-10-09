@@ -1,19 +1,15 @@
 # wpilib-agent-tools
 
-`wpilib-agent-tools` is a sandbox-first AI/robotics harness for FRC teams
-working with WPILib simulation, NT4 recording, WPILOG analysis, and reviewable
-agent workflows.
+`wpilib-agent-tools` lets AI coding agents (Codex, Claude Code, Cursor)
+improve WPILib robot code autonomously. Agents work in isolated sandboxes,
+run robot simulations, record NT4 telemetry, analyze `.wpilog` files, graph
+behavior, revise code, and re-test, with every change backed by simulation
+and log data.
 
-The tooling is meant to help agents work more effectively with WPILib simulation, NT4 data, and `.wpilog` analysis. It gives models a focused set of CLI commands and markdown guidance for gathering evidence, checking behavior, and iterating on robot code without immediately mutating the real workspace.
-
-It packages two related pieces:
+It packages two pieces:
 
 - a Python CLI for simulation, log, graph, math, sandbox, and NT4 workflows in [agent/](agent/)
 - shared workspace harness support for **Codex**, **Claude Code**, and **Cursor**
-
-This is not a polished universal AI coding platform. It is practical tooling
-for gathering better evidence during robot-code iteration before any patch is
-applied to a real workspace.
 
 ## At a Glance
 
@@ -21,7 +17,7 @@ applied to a real workspace.
 | --- | --- |
 | CLI workflows | WPILib sim, NT4 recording, WPILOG inspection, graphing, math checks, and sandbox utilities |
 | Agent harnesses | One shared installer path for Codex, Claude Code, and Cursor workspace support |
-| Validation loop | Bounded changes in a sandbox, followed by sim/log evidence and patch review |
+| Improvement loop | Agents change code in a sandbox, run sim/log analysis, and iterate until the data shows the behavior is right |
 | Distribution | GitHub-first source, install scripts, docs, tagged releases, and release artifacts |
 | Status | Daily-use public snapshot with documented validation status and known gaps |
 
@@ -45,15 +41,16 @@ That command:
 
 ## Core Workflow
 
-The useful loop is intentionally evidence-driven:
+Agents run a closed improvement loop:
 
-1. Make a bounded change in a sandbox.
-2. Run simulation or log analysis.
-3. Inspect concrete evidence from the run.
-4. Review the resulting patch.
-5. Apply only the changes that survive normal engineering review.
+1. Make a change in an isolated sandbox.
+2. Run simulation or analyze recorded logs.
+3. Measure the robot's behavior from the data.
+4. Revise and re-test until the results hold up.
+5. Merge the changes that pass back into the robot project.
 
-The goal is not to let a model blindly edit robot code. The goal is to make verification faster, more repeatable, and easier to inspect.
+Sandboxing and data-backed checks are what let agents iterate on robot code
+autonomously and reliably.
 
 ## Agent-Oriented Capabilities
 
