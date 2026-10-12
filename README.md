@@ -6,6 +6,14 @@ run robot simulations, record NT4 telemetry, analyze `.wpilog` files, graph
 behavior, revise code, and re-test, with every change backed by simulation
 and log data.
 
+<p align="center">
+  <a href="https://edanliahovetsky.github.io/#agents">
+    <img src="docs/assets/agent-session.gif" alt="An agent using wpilib-agent-tools: it opens a robot log, checks localization, drivetrain, shooter, and power in AdvantageScope-style views, then tests a fix in a sandboxed simulation" width="900">
+  </a>
+  <br>
+  <sub>A visualization of an agent session on a log from FRC 2638's 2026 World Championship match. From <a href="https://edanliahovetsky.github.io/#agents">edanliahovetsky.github.io</a>.</sub>
+</p>
+
 It packages two pieces:
 
 - a Python CLI for simulation, log, graph, math, sandbox, and NT4 workflows in [agent/](agent/)
